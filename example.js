@@ -28,12 +28,13 @@ var Config = require('./config');
 // });
 
 var config = new Config({
-  configPattern: 'generate.js',
-  modulePattern: 'generate-*',
+  // configPattern: 'generate.js',
+  // modulePattern: 'generate-*',
+  searchPattern: 'generate-*/generate.js',
   configName: 'generate',
   moduleName: 'generate'
 });
 
-config.resolve();
+console.log(config.resolve());
 
-console.log(config)
+// console.log(config)

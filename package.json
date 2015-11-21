@@ -1,17 +1,17 @@
 {
-  "name": "resolver",
-  "description": "The most interesting project in the world > Verb",
+  "name": "resolve-modules",
+  "description": "Resolves local and global npm modules that match specified patterns, and returns a configuration object for each resolved module.",
   "version": "0.1.0",
-  "homepage": "https://github.com/jonschlinkert/resolver",
+  "homepage": "https://github.com/jonschlinkert/resolve-modules",
   "author": "Jon Schlinkert (https://github.com/jonschlinkert)",
-  "repository": "jonschlinkert/resolver",
+  "repository": "jonschlinkert/resolve-modules",
   "bugs": {
-    "url": "https://github.com/jonschlinkert/resolver/issues"
+    "url": "https://github.com/jonschlinkert/resolve-modules/issues"
   },
   "license": "MIT",
   "files": [
     "index.js",
-    "utils.js"
+    "lib/"
   ],
   "main": "index.js",
   "engines": {
@@ -35,6 +35,10 @@
   "devDependencies": {
     "mocha": "*"
   },
+  "keywords": [
+    "modules",
+    "resolve"
+  ],
   "verb": {
     "related": {
       "list": []

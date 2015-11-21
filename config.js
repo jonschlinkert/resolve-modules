@@ -68,10 +68,9 @@ Config.prototype.normalizeOptions = function(options) {
  */
 
 Config.prototype.resolve = function(options) {
-  var opts = this.normalizeOptions(options);
+  var opts = this.normalizeOptions();
   var pattern = this.searchPattern;
   var self = this;
-  var res = [];
 
   for (var i = 0; i < this.paths.length; i++) {
     var cwd = this.paths[i];
@@ -85,18 +84,25 @@ Config.prototype.resolve = function(options) {
         if (self.cache.configPaths.indexOf(fp) === -1) {
           self.cache.configPaths.push(fp);
         }
-        res.push(fp);
       });
     }
   }
-  return res;
+  return this;
 };
+
+/**
+ * Utility function for adding getter/setter methods to the prototype.
+ */
+
+function mixin(key, val) {
+  define(Config.prototype, key, val);
+}
 
 /**
  * Get `cwd` (current working directory)
  */
 
-Object.defineProperty(Config.prototype, 'cwd', {
+mixin('cwd', {
   set: function(cwd) {
     this.cache.cwd = cwd;
   },
@@ -109,7 +115,7 @@ Object.defineProperty(Config.prototype, 'cwd', {
  * Get `basename`
  */
 
-Object.defineProperty(Config.prototype, 'basename', {
+mixin('basename', {
   set: function(basename) {
     this.cache.basename = basename;
   },
@@ -122,7 +128,7 @@ Object.defineProperty(Config.prototype, 'basename', {
  * Get `paths`
  */
 
-Object.defineProperty(Config.prototype, 'paths', {
+mixin('paths', {
   set: function(paths) {
     this.cache.paths = paths;
   },
@@ -147,7 +153,7 @@ Object.defineProperty(Config.prototype, 'paths', {
  * Get `name`
  */
 
-Object.defineProperty(Config.prototype, 'projectName', {
+mixin('projectName', {
   set: function(projectName) {
     this.cache.projectName = projectName;
     this.cache.alias = utils.aliasFn(projectName, this.options);
@@ -166,7 +172,7 @@ Object.defineProperty(Config.prototype, 'projectName', {
  * Get `alias`
  */
 
-Object.defineProperty(Config.prototype, 'alias', {
+mixin('alias', {
   set: function(alias) {
     this.cache.alias = alias;
   },
@@ -180,7 +186,7 @@ Object.defineProperty(Config.prototype, 'alias', {
  * Create regex for matching file names and extensions.
  */
 
-Object.defineProperty(Config.prototype, 'regex', {
+mixin('regex', {
   set: function(regex) {
     this.cache.regex = regex;
   },
@@ -201,7 +207,7 @@ Object.defineProperty(Config.prototype, 'regex', {
  * @return {String}
  */
 
-Object.defineProperty(Config.prototype, 'configPattern', {
+mixin('configPattern', {
   set: function(configPattern) {
     this.cache.configPattern = configPattern;
   },
@@ -226,7 +232,7 @@ Object.defineProperty(Config.prototype, 'configPattern', {
  * Create `modulePattern` to use for lookups
  */
 
-Object.defineProperty(Config.prototype, 'modulePattern', {
+mixin('modulePattern', {
   set: function(modulePattern) {
     this.cache.modulePattern = modulePattern;
   },
@@ -243,13 +249,16 @@ Object.defineProperty(Config.prototype, 'modulePattern', {
  * Create `searchPattern` to use for lookups
  */
 
-Object.defineProperty(Config.prototype, 'searchPattern', {
+mixin('searchPattern', {
   set: function(searchPattern) {
     this.cache.searchPattern = searchPattern;
   },
   get: function() {
     if (this.cache.hasOwnProperty('searchPattern')) {
       return this.cache.searchPattern;
+    }
+    if (this.options.hasOwnProperty('searchPattern')) {
+      return (this.cache.searchPattern = this.options.searchPattern);
     }
     var pattern = path.join(this.modulePattern, this.configPattern);
     return (this.cache.searchPattern = pattern);
@@ -260,7 +269,7 @@ Object.defineProperty(Config.prototype, 'searchPattern', {
  * Get `extensions`
  */
 
-Object.defineProperty(Config.prototype, 'extensions', {
+mixin('extensions', {
   set: function(extensions) {
     this.cache.extensions = extensions;
   },
@@ -277,7 +286,7 @@ Object.defineProperty(Config.prototype, 'extensions', {
  * Get `prefixes`
  */
 
-Object.defineProperty(Config.prototype, 'prefixes', {
+mixin('prefixes', {
   set: function(prefixes) {
     this.cache.prefixes = prefixes;
   },
@@ -294,7 +303,7 @@ Object.defineProperty(Config.prototype, 'prefixes', {
  * Get `suffixes`
  */
 
-Object.defineProperty(Config.prototype, 'suffixes', {
+mixin('suffixes', {
   set: function(suffixes) {
     this.cache.suffixes = suffixes;
   },
@@ -311,7 +320,7 @@ Object.defineProperty(Config.prototype, 'suffixes', {
  * Get `configName`
  */
 
-Object.defineProperty(Config.prototype, 'configName', {
+mixin('configName', {
   set: function(configName) {
     this.cache.configName = configName;
   },
@@ -336,7 +345,7 @@ Object.defineProperty(Config.prototype, 'configName', {
  * Get `configFile`
  */
 
-Object.defineProperty(Config.prototype, 'configFile', {
+mixin('configFile', {
   set: function(configFile) {
     this.cache.configFile = configFile;
   },
@@ -352,7 +361,7 @@ Object.defineProperty(Config.prototype, 'configFile', {
  * Get `configNames`
  */
 
-Object.defineProperty(Config.prototype, 'configNames', {
+mixin('configNames', {
   set: function(configNames) {
     this.cache.configNames = configNames;
   },
@@ -378,7 +387,7 @@ Object.defineProperty(Config.prototype, 'configNames', {
  * Get `configFiles`
  */
 
-Object.defineProperty(Config.prototype, 'configFiles', {
+mixin('configFiles', {
   set: function(configFiles) {
     this.cache.configFiles = configFiles;
   },
@@ -395,7 +404,7 @@ Object.defineProperty(Config.prototype, 'configFiles', {
  * Get `configPaths`
  */
 
-Object.defineProperty(Config.prototype, 'configPaths', {
+mixin('configPaths', {
   set: function(configPaths) {
     this.cache.configPaths = configPaths;
   },
@@ -411,7 +420,7 @@ Object.defineProperty(Config.prototype, 'configPaths', {
  * Get `moduleName` to use for lookups
  */
 
-Object.defineProperty(Config.prototype, 'moduleName', {
+mixin('moduleName', {
   set: function(moduleName) {
     this.cache.moduleName = moduleName;
   },
@@ -424,7 +433,7 @@ Object.defineProperty(Config.prototype, 'moduleName', {
  * Get `modulePath` to use for lookups
  */
 
-Object.defineProperty(Config.prototype, 'modulePath', {
+mixin('modulePath', {
   set: function(modulePath) {
     this.cache.modulePath = modulePath;
   },
