@@ -5,8 +5,8 @@ var path = require('path');
 var npmPaths = require('npm-paths');
 var Emitter = require('component-emitter');
 var define = require('define-property');
-var ConfigFile = require('./configfile');
-var utils = require('./utils');
+var ConfigFile = require('./lib/configfile');
+var utils = require('./lib/utils');
 var defaultExts = ['.js', '.json', '.yml'];
 
 function Config(options) {
