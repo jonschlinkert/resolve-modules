@@ -1,7 +1,7 @@
 'use strict';
 
 var path = require('path');
-var Config = require('./config');
+var Resolver = require('./');
 // var Resolver = require('./');
 // var resolver = new Resolver({
 //   configfile: 'configfoo.js',
@@ -19,22 +19,30 @@ var Config = require('./config');
 
 // var resolver = new Resolver();
 
-// var config = new Config({
-//   paths: [process.cwd()],
-//   configFile: '.eslintrc.yml',
+// var config = new Resolver({
+//   configFile: '.eslintrc',
 //   // prefixes: ['.'],
 //   // suffixes: ['rc'],
-//   moduleName: 'resolver'
+//   aliasFn: function (fp) {
+//     return fp;
+//   },
+//   // searchPattern: '.eslintrc',
+//   moduleName: 'resolve-modules'
 // });
 
-var config = new Config({
-  // configPattern: 'generate.js',
-  // modulePattern: 'generate-*',
-  searchPattern: 'generate-*/generate.js',
+var config = new Resolver({
+  configPattern: 'generate.js',
+  modulePattern: 'generate-*',
   configName: 'generate',
   moduleName: 'generate'
 });
 
-console.log(config.resolve());
+// var config = new Resolver({
+//   searchPattern: 'generate-*/generate.js',
+//   configFile: 'generate.js',
+//   moduleName: 'generate'
+// });
 
-// console.log(config)
+config.resolve();
+
+console.log(config)
