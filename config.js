@@ -59,26 +59,6 @@ Config.prototype.normalizeOptions = function(options) {
 };
 
 /**
- * Create search pattern from `configNames`, `configFiles`, `extensions`,
- * `suffixes`, `prefixes` and `paths`.
- *
- * @param {Options} options
- * @return {String}
- */
-
-Config.prototype.buildPattern = function() {
-  var foo = {};
-  foo.prefixes = this.prefixes;
-  foo.suffixes = this.suffixes;
-  foo.names = this.configNames;
-  foo.files = this.configFiles;
-  foo.exts = this.extensions;
-  foo.paths = this.paths;
-
-  console.log(foo)
-};
-
-/**
  * Iterate over `config.paths` and create a new `Config` for each
  * resolved path that matches `config.modulePattern`.
  *
@@ -89,14 +69,14 @@ Config.prototype.buildPattern = function() {
 
 Config.prototype.resolve = function(options) {
   var opts = this.normalizeOptions(options);
+  var pattern = this.searchPattern;
   var self = this;
   var res = [];
 
   for (var i = 0; i < this.paths.length; i++) {
     var cwd = this.paths[i];
     var opt = utils.extend({}, opts, {cwd: cwd});
-
-    var files = utils.glob.sync(this.modulePattern, opt);
+    var files = utils.glob.sync(pattern, opt);
     if (files.length) {
       files.forEach(function(fp) {
         var config = new ConfigFile({config: self, options: opts, path: fp});
@@ -151,13 +131,15 @@ Object.defineProperty(Config.prototype, 'paths', {
       return this.cache.paths;
     }
     var paths = this.options.paths || [];
-    paths.push(this.cwd);
+    if (paths.indexOf(this.cwd) === -1) {
+      paths.push(this.cwd);
+    }
 
     if (this.options.npmPaths !== false) {
       var opts = utils.extend({fast: true}, this.options);
       paths = paths.concat(npmPaths(opts));
     }
-    return (this.cache.paths = paths);
+    return (this.cache.paths = utils.unique(paths));
   }
 });
 
@@ -212,19 +194,31 @@ Object.defineProperty(Config.prototype, 'regex', {
 });
 
 /**
- * Create glob pattern for matching file names and extensions.
+ * Create search pattern for matching config files using `configNames`,
+ * `configFiles`, `extensions`, `suffixes`, and `prefixes`
+ *
+ * @param {Options} options
+ * @return {String}
  */
 
-Object.defineProperty(Config.prototype, 'pattern', {
-  set: function(pattern) {
-    this.cache.pattern = pattern;
+Object.defineProperty(Config.prototype, 'configPattern', {
+  set: function(configPattern) {
+    this.cache.configPattern = configPattern;
   },
   get: function() {
-    if (this.cache.hasOwnProperty('pattern')) {
-      return this.cache.pattern;
+    if (this.cache.hasOwnProperty('configPattern')) {
+      return this.cache.configPattern;
     }
-    var pattern = utils.createNamePattern(this.configNames, this.extensions);
-    return(this.cache.pattern = pattern);
+
+    if (this.options.configPattern) {
+      return (this.cache.configPattern = this.options.configPattern);
+    }
+
+    var configPattern = this.configFiles.length > 1
+      ? '{' + this.configFiles.join(',') + '}'
+      : this.configFiles[0];
+
+    return(this.cache.configPattern = configPattern);
   }
 });
 
@@ -234,15 +228,31 @@ Object.defineProperty(Config.prototype, 'pattern', {
 
 Object.defineProperty(Config.prototype, 'modulePattern', {
   set: function(modulePattern) {
-    throw new Error('modulePattern is a getter and cannot be defined directly');
+    this.cache.modulePattern = modulePattern;
   },
   get: function() {
     if (this.cache.hasOwnProperty('modulePattern')) {
       return this.cache.modulePattern;
     }
     var modulePattern = this.options.modulePattern || '*';
-    var pattern = path.join(modulePattern, this.pattern);
-    return (this.cache.modulePattern = pattern);
+    return (this.cache.modulePattern = modulePattern);
+  }
+});
+
+/**
+ * Create `searchPattern` to use for lookups
+ */
+
+Object.defineProperty(Config.prototype, 'searchPattern', {
+  set: function(searchPattern) {
+    this.cache.searchPattern = searchPattern;
+  },
+  get: function() {
+    if (this.cache.hasOwnProperty('searchPattern')) {
+      return this.cache.searchPattern;
+    }
+    var pattern = path.join(this.modulePattern, this.configPattern);
+    return (this.cache.searchPattern = pattern);
   }
 });
 
@@ -351,8 +361,9 @@ Object.defineProperty(Config.prototype, 'configNames', {
       return this.cache.configNames;
     }
     var names = this.cache.configNames || this.options.configNames || [];
-    if (this.configName) names.push(this.configName);
-
+    if (this.configName && names.indexOf(this.configName) === -1) {
+      names.push(this.configName);
+    }
     if (this.suffixes.length) {
       names = utils.append(names, this.suffixes);
     }
@@ -376,24 +387,6 @@ Object.defineProperty(Config.prototype, 'configFiles', {
       return this.cache.configFiles;
     }
     var names = utils.createNames(this.configNames, this.extensions);
-    // var configFile = this.options.configFile;
-    // if (configFile) {
-    //   var ext = utils.stripDot(path.extname(configFile));
-    //   if (this.extensions.indexOf(ext) === -1) {
-    //     this.extensions.push(ext);
-    //   }
-    //   if (names.indexOf(configFile) === -1) {
-    //     names.push(configFile);
-    //   }
-    // }
-    // var len = names.length, i = -1;
-    // while (++i < len) {
-    //   var filename = names[i];
-    //   var name = utils.stripDot(path.basename(filename, path.extname(filename)));
-    //   if (this.configNames.indexOf(name) === -1) {
-    //     this.configNames.push(name);
-    //   }
-    // }
     return (this.cache.configFiles = names);
   }
 });

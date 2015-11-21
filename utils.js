@@ -33,6 +33,7 @@ require = utils;
 require('component-emitter', 'Emitter');
 require('project-name', 'project');
 require('extend-shallow', 'extend');
+require('array-unique', 'unique');
 require('matched', 'glob');
 require('resolve-dir');
 require('resolve-up');

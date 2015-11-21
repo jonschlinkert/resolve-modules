@@ -19,21 +19,20 @@ var Config = require('./config');
 
 // var resolver = new Resolver();
 
-var config = new Config({
-  paths: [process.cwd()],
-  configFile: '.eslintrc.yml',
-  // prefixes: ['.'],
-  // suffixes: ['rc'],
-  moduleName: 'resolver'
-});
-
 // var config = new Config({
-//   cwd: '.',
-//   modulePattern: 'generate-*',
-//   configName: 'generate',
-//   moduleName: 'generate'
+//   paths: [process.cwd()],
+//   configFile: '.eslintrc.yml',
+//   // prefixes: ['.'],
+//   // suffixes: ['rc'],
+//   moduleName: 'resolver'
 // });
-config.buildPattern();
+
+var config = new Config({
+  configPattern: 'generate.js',
+  modulePattern: 'generate-*',
+  configName: 'generate',
+  moduleName: 'generate'
+});
 
 config.resolve();
 
