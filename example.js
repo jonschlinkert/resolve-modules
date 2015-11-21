@@ -30,19 +30,23 @@ var Resolver = require('./');
 //   moduleName: 'resolve-modules'
 // });
 
-var config = new Resolver({
+var resolver = new Resolver({
   configPattern: 'generate.js',
   modulePattern: 'generate-*',
   configName: 'generate',
   moduleName: 'generate'
 });
 
-// var config = new Resolver({
+resolver.on('config', function(config) {
+  console.log(config);
+});
+
+// var resolver = new Resolver({
 //   searchPattern: 'generate-*/generate.js',
 //   configFile: 'generate.js',
 //   moduleName: 'generate'
 // });
 
-config.resolve();
+resolver.resolve();
 
-console.log(config)
+// console.log(resolver.configPaths)

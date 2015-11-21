@@ -2,6 +2,7 @@
 
 var fs = require('fs');
 var path = require('path');
+var Emitter = require('component-emitter');
 var Config = require('./lib/config');
 var utils = require('./lib/utils');
 var defaultExts = ['.js', '.json', '.yml'];
@@ -29,6 +30,12 @@ function Resolver(options) {
   this.cwd = path.resolve(this.options.cwd || process.cwd());
   this.validate();
 }
+
+/**
+ * Inherit Emitter
+ */
+
+Emitter(Resolver.prototype);
 
 /**
  * Validate that required properties are defined upon instantiation.
@@ -88,6 +95,7 @@ Resolver.prototype.resolve = function() {
         self.configs[config.alias] = config;
         if (self.cache.configPaths.indexOf(fp) === -1) {
           self.cache.configPaths.push(fp);
+          self.emit('config', config);
         }
       });
     }
@@ -146,7 +154,6 @@ mixin('paths', {
     if (paths.indexOf(this.cwd) === -1) {
       paths.push(this.cwd);
     }
-
     if (this.options.npmPaths !== false) {
       var opts = utils.extend({fast: true}, this.options);
       paths = paths.concat(utils.npmPaths(opts));
