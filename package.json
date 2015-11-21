@@ -1,0 +1,44 @@
+{
+  "name": "resolver",
+  "description": "The most interesting project in the world > Verb",
+  "version": "0.1.0",
+  "homepage": "https://github.com/jonschlinkert/resolver",
+  "author": "Jon Schlinkert (https://github.com/jonschlinkert)",
+  "repository": "jonschlinkert/resolver",
+  "bugs": {
+    "url": "https://github.com/jonschlinkert/resolver/issues"
+  },
+  "license": "MIT",
+  "files": [
+    "index.js",
+    "utils.js"
+  ],
+  "main": "index.js",
+  "engines": {
+    "node": ">=0.10.0"
+  },
+  "scripts": {
+    "test": "mocha"
+  },
+  "dependencies": {
+    "component-emitter": "^1.2.0",
+    "define-property": "^0.2.5",
+    "extend-shallow": "^2.0.1",
+    "lazy-cache": "^0.2.4",
+    "matched": "^0.3.2",
+    "npm-paths": "^0.1.1",
+    "project-name": "^0.2.1",
+    "resolve-dir": "^0.1.0",
+    "resolve-up": "^0.5.0",
+    "vinyl": "^1.1.0"
+  },
+  "devDependencies": {
+    "mocha": "*",
+    "should": "*"
+  },
+  "verb": {
+    "related": {
+      "list": []
+    }
+  }
+}
