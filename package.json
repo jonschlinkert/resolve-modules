@@ -25,6 +25,7 @@
     "component-emitter": "^1.2.0",
     "define-property": "^0.2.5",
     "extend-shallow": "^2.0.1",
+    "inflection": "^1.8.0",
     "lazy-cache": "^0.2.4",
     "matched": "^0.3.2",
     "npm-paths": "^0.1.1",
@@ -41,7 +42,12 @@
   ],
   "verb": {
     "related": {
-      "list": []
+      "list": [
+        "global-modules",
+        "global-paths",
+        "global-prefix",
+        "npm-paths"
+      ]
     }
   }
 }
