@@ -14,14 +14,35 @@ $ npm i resolve-modules --save
 
 ## Usage
 
+More docs are coming. In the meantime the [examples](./examples) might be useful.
+
 ```js
 var Resolver = require('resolve-modules');
 var resolver = new Resolver({
-  searchPattern: 'generate-*/generate.js',
-  configName: 'generate',
-  methodName: 'generator',
-  moduleName: 'generate'
+  searchPattern: 'update-*/updatefile.js',
+  configName: 'update',
+  methodName: 'updater',
+  moduleName: 'update'
 });
+```
+
+**Results in**
+
+For each resolved module, a config object is created (on `configs`) that looks something like this:
+
+```js
+{ alias: 'modules',
+  name: 'resolve-modules',
+  path: '/Users/jonschlinkert/dev/update/update-travis/updatefile.js',
+  main: '/Users/jonschlinkert/dev/update/update-travis/index.js',
+  pkg: '/Users/jonschlinkert/dev/update/update-travis/package.json',
+  cwd: '/Users/jonschlinkert/dev/update/update-travis',
+  dirname: '/Users/jonschlinkert/dev/update/update-travis',
+  configName: 'updatefile',
+  configFile: 'updatefile.js',
+  configPath: '/Users/jonschlinkert/dev/update/update-travis/updatefile.js',
+  moduleName: 'update',
+  modulePath: '/Users/jonschlinkert/dev/update/update/index.js',
 ```
 
 ## API
