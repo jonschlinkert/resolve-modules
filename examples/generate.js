@@ -1,6 +1,5 @@
 'use strict';
 
-var path = require('path');
 var Resolver = require('..');
 var resolver = new Resolver({
   configPattern: 'generate.js',

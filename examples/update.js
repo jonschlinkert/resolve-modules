@@ -1,6 +1,6 @@
 'use strict';
 
-var path = require('path');
+var util = require('util');
 var Resolver = require('..');
 var resolver = new Resolver({
   configPattern: 'updatefile.js',
@@ -14,3 +14,5 @@ resolver.on('config', function(config) {
 });
 
 resolver.resolve();
+
+// console.log(util.inspect(resolver, null, 10));

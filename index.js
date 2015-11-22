@@ -1,6 +1,5 @@
 'use strict';
 
-var fs = require('fs');
 var path = require('path');
 var Emitter = require('component-emitter');
 var Config = require('./lib/config');
@@ -107,6 +106,9 @@ Resolver.prototype.resolve = function(cb) {
     if (files.length) {
       files.forEach(function(fp) {
         var config = new Config({config: self, options: opts, path: fp});
+        if (!config.modulePath) {
+          config.modulePath = self.modulePath;
+        }
         self.cache.configs.push(config);
         self.configs[config.alias] = config;
         if (self.cache.configPaths.indexOf(fp) === -1) {
@@ -122,7 +124,7 @@ Resolver.prototype.resolve = function(cb) {
   if (typeof cb === 'function') {
     cb(null, results);
   }
-  return this;;
+  return this;
 };
 
 /**
@@ -142,7 +144,7 @@ mixin('path', {
     this.cache.path = filepath;
   },
   get: function() {
-    return (this.cache.path || (this.cache.path = utils.tryResolve(this.cwd)));
+    return (this.cache.path || (this.cache.path = process.cwd()));
   }
 });
 
@@ -155,7 +157,11 @@ mixin('cwd', {
     this.cache.cwd = cwd;
   },
   get: function() {
-    return this.get('cwd') || (this.cache.cwd = process.cwd());
+    if (this.cache.cwd) {
+      return this.cache.cwd;
+    }
+    var cwd = utils.lookup('package.json', {cwd: this.path});
+    return (this.cache.cwd = path.resolve(path.dirname(cwd)));
   }
 });
 
@@ -281,7 +287,7 @@ mixin('configPattern', {
     var configPattern = this.configFiles.length > 1
       ? '{' + this.configFiles.join(',') + '}'
       : this.configFiles[0];
-    return(this.cache.configPattern = configPattern);
+    return (this.cache.configPattern = configPattern);
   }
 });
 
@@ -550,12 +556,17 @@ mixin('modulePath', {
     this.cache.modulePath = modulePath;
   },
   get: function() {
-    if (!this.moduleName) return null;
-    if (this.cache.hasOwnProperty('modulePath')) {
+    if (this.cache.modulePath) {
       return this.cache.modulePath;
     }
-    var fp = this.path || utils.resolveModule(this.cwd, this.moduleName, this.options);
-    return (this.cache.modulePath = fp);
+    var name = this.get('modulePath') || this.moduleName;
+    if (!name) return null;
+
+    var modulePath = utils.resolveUp(name);
+    if (modulePath.length) {
+      modulePath = utils.tryResolve(modulePath[0]);
+    }
+    return (this.cache.modulePath = modulePath);
   }
 });
 
