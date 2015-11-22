@@ -14,10 +14,11 @@ var defaultExts = ['.js', '.json', '.yml'];
 module.exports = Resolver;
 
 /**
- * Create an instance of `Resolver` with the given `options`.
+ * Create an instance of `Resolver` with the given `options`. This
+ * function is the main export of `resolve-modules`.
  *
  * ```js
- * var resolver = new Resolver();
+ * var resolver = new Resolver(options);
  * ```
  * @param {Object} `options`
  * @api public
@@ -25,9 +26,8 @@ module.exports = Resolver;
 
 function Resolver(options) {
   this.options = options || {};
-  this.cache = {configs: [], configPaths: []};
+  this.cache = {configPaths: [], configs: []};
   this.configs = {};
-  this.cwd = path.resolve(this.options.cwd || process.cwd());
   this.validate();
 }
 
@@ -56,6 +56,14 @@ Resolver.prototype.assert = function(prop) {
 };
 
 /**
+ * Get property `key` from `cache` or `options`.
+ */
+
+Resolver.prototype.get = function(key) {
+  return this.cache[key] || this.options[key];
+};
+
+/**
  * Creates an options object that is a combination of the given `options`
  * and globally defined options, whilst also ensuring that `realpath`
  * and `cwd` are defined so that glob results are what we expect.
@@ -71,19 +79,27 @@ Resolver.prototype.normalizeOptions = function(options) {
 };
 
 /**
- * Iterate over `config.paths` and create a new `Resolver` object for each
- * resolved path that matches `searchPattern`.
+ * Searches npm paths and any addition paths that were specified on the
+ * options for files that match the `searchPattern`. The `searchPattern`
+ * is a glob pattern that may be specified directly on the options, or
+ * if not specified, it is created from `modulePattern` and `configPattern`.
  *
+ * When a matching file is found, a new `Config` object is create for the
+ * filepath, and a `config` event is emitted with the config object.
+ *
+ * ```js
+ * resolver.resolve();
+ * ```
  * @param {Object} `options`
- * @return {Array}
+ * @param {Function} `callback` Callback function that exposes `err` and `files` as its only parameters. This method is primarily used as an emitter, but you can also get the matched files as an array in the callback.
  * @api public
  */
 
-Resolver.prototype.resolve = function() {
+Resolver.prototype.resolve = function(cb) {
   var opts = this.normalizeOptions();
   var pattern = this.searchPattern;
   var self = this;
-
+  var results = [];
   for (var i = 0; i < this.paths.length; i++) {
     var cwd = this.paths[i];
     var opt = utils.extend({}, opts, {cwd: cwd});
@@ -95,13 +111,18 @@ Resolver.prototype.resolve = function() {
         self.configs[config.alias] = config;
         if (self.cache.configPaths.indexOf(fp) === -1) {
           self.cache.configPaths.push(fp);
+          results.push(fp);
           self.emit('config', config);
         }
       });
     }
   }
+
   self.cache.configPaths.sort();
-  return this;
+  if (typeof cb === 'function') {
+    cb(null, results);
+  }
+  return this;;
 };
 
 /**
@@ -113,6 +134,19 @@ function mixin(key, val) {
 }
 
 /**
+ * Get the module `path`
+ */
+
+mixin('path', {
+  set: function(filepath) {
+    this.cache.path = filepath;
+  },
+  get: function() {
+    return (this.cache.path || (this.cache.path = utils.tryResolve(this.cwd)));
+  }
+});
+
+/**
  * Get `cwd` (current working directory)
  */
 
@@ -121,7 +155,7 @@ mixin('cwd', {
     this.cache.cwd = cwd;
   },
   get: function() {
-    return (this.cache.cwd || (this.cache.cwd = this.dirname));
+    return this.get('cwd') || (this.cache.cwd = process.cwd());
   }
 });
 
@@ -134,7 +168,20 @@ mixin('basename', {
     this.cache.basename = basename;
   },
   get: function() {
-    return this.cache.basename || (this.cache.basename = path.basename(this.cwd));
+    return this.get('basename') || (this.cache.basename = path.basename(this.cwd));
+  }
+});
+
+/**
+ * Get `dirname`
+ */
+
+mixin('dirname', {
+  set: function(dirname) {
+    this.cache.dirname = dirname;
+  },
+  get: function() {
+    return this.get('dirname') || (this.cache.dirname = path.dirname(this.path));
   }
 });
 
@@ -228,15 +275,12 @@ mixin('configPattern', {
     if (this.cache.hasOwnProperty('configPattern')) {
       return this.cache.configPattern;
     }
-
     if (this.options.configPattern) {
       return (this.cache.configPattern = this.options.configPattern);
     }
-
     var configPattern = this.configFiles.length > 1
       ? '{' + this.configFiles.join(',') + '}'
       : this.configFiles[0];
-
     return(this.cache.configPattern = configPattern);
   }
 });
@@ -326,6 +370,58 @@ mixin('suffixes', {
     }
     var suffixes = utils.arrayify(this.options.suffixes || this.options.suffix || []);
     return (this.cache.suffixes = suffixes);
+  }
+});
+
+/**
+ * Get `methodName`
+ */
+
+mixin('methodName', {
+  set: function(methodName) {
+    this.cache.methodName = methodName;
+  },
+  get: function() {
+    if (this.cache.methodName) {
+      return this.cache.methodName;
+    }
+    var methodName = this.get('methodName') || this.configName;
+    return (this.cache.methodName = methodName);
+  }
+});
+
+/**
+ * Get `single` property name. The "single" name is the singularized form
+ * of the property that will be used for storing items.
+ */
+
+mixin('single', {
+  set: function(single) {
+    this.cache.single = single;
+  },
+  get: function() {
+    if (this.cache.single) {
+      return this.cache.single;
+    }
+    var single = this.get('single') || utils.single(this.methodName);
+    return (this.cache.single = single);
+  }
+});
+
+/**
+ * Get `plural` property name
+ */
+
+mixin('plural', {
+  set: function(plural) {
+    this.cache.plural = plural;
+  },
+  get: function() {
+    if (this.cache.plural) {
+      return this.cache.plural;
+    }
+    var plural = this.get('plural') || utils.plural(this.methodName);
+    return (this.cache.plural = plural);
   }
 });
 
@@ -458,7 +554,7 @@ mixin('modulePath', {
     if (this.cache.hasOwnProperty('modulePath')) {
       return this.cache.modulePath;
     }
-    var fp = utils.resolveModule(this.cwd, this.moduleName, this.options);
+    var fp = this.path || utils.resolveModule(this.cwd, this.moduleName, this.options);
     return (this.cache.modulePath = fp);
   }
 });
