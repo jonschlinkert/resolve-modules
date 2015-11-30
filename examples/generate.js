@@ -1,15 +1,16 @@
 'use strict';
 
+var util = require('util');
 var Resolver = require('..');
 var resolver = new Resolver({
-  configPattern: 'generate.js',
-  modulePattern: 'generate-*',
-  configName: 'generate',
-  moduleName: 'generate'
+  module: 'generate'
 });
 
 resolver.on('config', function(config) {
   console.log(config);
 });
 
-resolver.resolve();
+resolver.resolve({
+  cwd: '@/',
+  pattern: 'generate-*/generate.js',
+});
