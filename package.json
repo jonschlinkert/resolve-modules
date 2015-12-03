@@ -27,7 +27,6 @@
     "find-pkg": "^0.1.0",
     "get-value": "^2.0.0",
     "has-value": "^0.3.0",
-    "is-absolute": "^0.2.3",
     "lazy-cache": "^0.2.4",
     "matched": "^0.3.2",
     "project-name": "^0.2.3",
@@ -38,10 +37,23 @@
   },
   "devDependencies": {
     "global-modules": "^0.2.0",
-    "mocha": "*"
+    "mocha": "*",
+    "spawn-commands": "^0.3.1"
   },
   "keywords": [
+    "config",
+    "configfile",
+    "env",
+    "filepath",
+    "find",
+    "generator",
+    "glob",
+    "global",
+    "match",
+    "module",
     "modules",
+    "npm",
+    "pattern",
     "resolve"
   ],
   "verb": {
