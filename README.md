@@ -80,9 +80,14 @@ The `config` object that is emitted looks something like this:
 
 ## API
 
-### [Resolver](index.js#L26)
+### Resolver
 
-Create an instance of `Resolver` with the given `options`. This function is the main export of `resolve-modules`.
+### [Resolver](index.js#L32)
+
+Create an instance of `Resolver` with `options`. The only required option is `module`, which is the name of the module that will be used for creating instances for config files by the [resolve](#resolve) method.
+
+For example, [generate][], the project generator, would be the "module",
+and individual generators (`generator.js` files) would be the "config" files.
 
 **Params**
 
@@ -91,14 +96,63 @@ Create an instance of `Resolver` with the given `options`. This function is the 
 **Example**
 
 ```js
-var resolver = new Resolver(options);
+var resolver = new Resolver({
+  module: 'generate'
+});
 ```
 
-### [.resolve](index.js#L44)
+### [.resolve](index.js#L79)
+
+Searches for config files that match the given glob `patterns` and, when found, emits `config` with details about the module and environment, such as absolute path, `cwd`, path to parent module, etc.
+
+**Params**
+
+* `patterns` **{String|Array|Object}**: Glob pattern(s) or options object. If options, the `pattern` property must be defined with a glob pattern.
+* `options` **{Object}**
+* `returns` **{Object}**: Returns the resolver instance, for chaining.
+
+**Example**
+
+```js
+var resolver = new Resolver({
+  module: 'generate'
+});
+
+resolver.on('config', function(config, mod) {
+  // `config` is an object with fully resolved file paths.
+  // Config also has a `fn` getter that returns the contents of
+  // the config file. Using the "generate" analogy above, this would
+  // be a "generator.js" config file
+
+  // `mod` (module) is a similar object, but for the "parent"
+  // module. Using the generate analogy above, this would be an installation
+  // "generate", either installed locally to the generator, or as a global
+  // npm module
+});
+
+resolver
+  .resolve('generator.js', {cwd: 'foo'})
+  .resolve('generator.js', {cwd: 'bar'})
+  .resolve('generator.js', {cwd: 'baz'});
+```
+
+### Config
+
+### Module
+
+### [Mod](lib/mod.js#L18)
+
+Create a new `Mod` with the given `options`
 
 **Params**
 
 * `options` **{Object}**
+
+**Example**
+
+```js
+var mod = new Mod(options);
+```
 
 ## Related projects
 
