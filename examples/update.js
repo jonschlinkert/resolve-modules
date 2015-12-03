@@ -1,18 +1,19 @@
 'use strict';
 
 var util = require('util');
+var gm = require('global-modules');
 var Resolver = require('..');
 var resolver = new Resolver({
-  configPattern: 'updatefile.js',
-  modulePattern: 'update-*',
-  configFile: 'updatefile.js',
-  moduleName: 'update'
+  module: 'update'
 });
 
 resolver.on('config', function(config) {
   console.log(config);
 });
 
-resolver.resolve();
+resolver.resolve({
+  pattern: 'update-*/updatefile.js',
+  cwd: gm
+});
 
 // console.log(util.inspect(resolver, null, 10));

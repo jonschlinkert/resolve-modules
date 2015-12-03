@@ -4,16 +4,14 @@ var utils = require('../lib/utils');
 
 var Config = require('../lib/config');
 var config = new Config({
-  verbose: true,
   cwd: '@/generate-node',
-  filename: 'generate.js'
+  path: 'generate.js'
 });
 
 var Mod = require('../lib/mod');
-var mod = new Mod({
-  verbose: true,
-  name: 'generate',
-  cwd: config.cwd
+var mod = new Mod('generate', {
+  configCwd: config.cwd
 });
 
+console.log(config.path);
 console.log(mod);

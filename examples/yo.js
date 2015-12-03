@@ -9,7 +9,7 @@ var resolver = new Resolver({
 });
 
 resolver.on('config', function(config) {
-  // console.log(config);
+  console.log(config)
 });
 
 // yeoman does more than this, but hopefully
@@ -24,4 +24,4 @@ resolver
     cwd: path.join(process.cwd(), 'node_modules')
   })
 
-console.log(util.inspect(resolver, null, 10));
+// console.log(util.inspect(resolver, null, 10));
