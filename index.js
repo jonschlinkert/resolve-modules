@@ -49,13 +49,13 @@ Resolver.prototype.resolve = function(options) {
 
   while (len--) {
     var fp = files[len];
-    opts.cwd = path.dirname(fp);
+    opts.configCwd = path.dirname(fp);
     this.paths.push(fp);
 
     var config = new Config({path: fp, options: opts});
     config.module = new Mod(opts.module, config);
     this.configs[config.alias] = config;
-    this.emit('config', config);
+    this.emit('config', config, config.module);
   }
   return this;
 };
@@ -65,3 +65,5 @@ Resolver.prototype.resolve = function(options) {
  */
 
 module.exports = Resolver;
+module.exports.Config = Config;
+module.exports.Mod = Mod;
