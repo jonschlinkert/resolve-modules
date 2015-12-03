@@ -36,6 +36,17 @@ describe('Modules', function() {
     assert.equal(mod.name, 'generate');
   });
 
+  it('should throw an error when name is undefined', function(cb) {
+    try {
+      var foo = new Mod();
+      cb(new Error('expected an error'));
+    } catch (err) {
+      assert(err);
+      assert.equal(err.message, 'expected name to be a string');
+      cb();
+    }
+  });
+
   it('should get the module path', function() {
     assert.equal(mod.path, '/usr/local/lib/node_modules/generate/index.js');
   });
