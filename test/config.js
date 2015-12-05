@@ -24,18 +24,11 @@ describe('Config', function() {
   });
 
   beforeEach(function() {
-    config = new Config({
-      options: { cwd: gm },
-      path: path.join(dir, 'generator.js')
-    });
+    config = new Config(path.join(dir, 'generator.js'), {cwd: gm});
   });
 
   it('should get the config path', function() {
     assert.equal(config.path, path.join(dir, 'generator.js'));
-  });
-
-  it('should resolve the filename', function() {
-    assert.equal(config.filename, 'generator.js');
   });
 
   it('should resolve the dirname', function() {

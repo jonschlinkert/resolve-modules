@@ -4,6 +4,7 @@ var path = require('path');
 var Emitter = require('component-emitter');
 var Config = require('./lib/config');
 var utils = require('./lib/utils');
+var User = require('./lib/user');
 var Mod = require('./lib/mod');
 
 /**
@@ -31,9 +32,10 @@ module.exports = Resolver;
 
 function Resolver(options) {
   this.options = options || {};
+  utils.define(this, 'cache', {});
+  utils.define(this, 'files', {});
+  utils.define(this, 'paths', []);
   this.configs = {};
-  this.cache = {};
-  this.paths = [];
 }
 
 /**
@@ -76,28 +78,40 @@ Emitter(Resolver.prototype);
  * @api public
  */
 
-Resolver.prototype.resolve = function(patterns, options) {
-  if (!utils.isValidGlob(patterns)) {
-    options = patterns;
-    patterns = null;
+Resolver.prototype.resolve = function(key, options) {
+  if (typeof key !== 'string') {
+    options = key;
+    key = null;
   }
 
+  if (!key) key = 'default';
   options = utils.extend({}, this.options, options);
   var opts = utils.normalizeOptions(options);
-  patterns = patterns || opts.pattern;
+  opts.key = key;
+  var patterns = (opts.patterns || opts.pattern);
 
-  var files = utils.glob.sync(patterns, opts);
+  var files = this.files[opts.cwd] || utils.glob.sync(patterns, opts);
+  this.files[opts.cwd] = files;
+
   var len = files.length;
-
   while (len--) {
     var fp = files[len];
-    opts.configCwd = path.dirname(fp);
+    var cwd = opts.configCwd = path.dirname(fp);
     this.paths.push(fp);
 
-    var config = new Config({path: fp, options: opts});
-    config.module = new Mod(opts.module, config);
-    this.configs[config.alias] = config;
-    this.emit('config', config, config.module);
+    var env = {};
+    if (this.cache[cwd]) {
+      env = this.cache[cwd];
+    } else {
+      var userOpts = utils.extend({}, opts);
+      userOpts.cwd = cwd;
+      env.user = new User(userOpts);
+      env.config = new Config(fp, opts);
+      env.module = new Mod(opts.module, env.config, opts);
+    }
+
+    this.emit('config', key, env);
+    utils.set(this.configs, [key, env.config.alias], env);
   }
   return this;
 };
@@ -107,5 +121,11 @@ Resolver.prototype.resolve = function(patterns, options) {
  */
 
 module.exports = Resolver;
+
+/**
+ * Expose `env` constructors
+ */
+
 module.exports.Config = Config;
+module.exports.User = User;
 module.exports.Mod = Mod;

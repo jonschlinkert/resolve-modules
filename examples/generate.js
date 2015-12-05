@@ -23,7 +23,6 @@ resolver
     cwd: __dirname,
     pattern: 'generate/three/**/generator.js',
     aliasFn: function(key) {
-      console.log(arguments);
       return key;
     }
   })

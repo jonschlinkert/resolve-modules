@@ -25,9 +25,8 @@ describe('Modules', function() {
   });
 
   beforeEach(function() {
-    config = new Config({
-      options: { cwd: gm },
-      path: path.join(dir, 'generator.js')
+    config = new Config(path.join(dir, 'generator.js'), {
+      cwd: gm
     });
     mod = new Mod('generate', config);
   });
