@@ -103,11 +103,7 @@ Resolver.prototype.resolve = function(key, options) {
     if (this.cache[cwd]) {
       env = this.cache[cwd];
     } else {
-      var userOpts = utils.extend({}, opts);
-      userOpts.cwd = cwd;
-      env.user = new User(userOpts);
-      env.config = new Config(fp, opts);
-      env.module = new Mod(opts.module, env.config, opts);
+      env = createEnv(fp, cwd, opts);
     }
 
     this.emit('config', key, env);
@@ -115,6 +111,28 @@ Resolver.prototype.resolve = function(key, options) {
   }
   return this;
 };
+
+/**
+ * Return a new `env` (environment) object with `config`, `module`
+ * and `user` properties.
+ *
+ * @param {String} `fp` The starting filepath for the `config`
+ * @param {String} `cwd` The user (process) `cwd`
+ * @param {Object} `options`
+ * @return {Object}
+ * @api public
+ */
+
+function createEnv(fp, cwd, options) {
+  options = options || {};
+  var env = {};
+  var opts = utils.extend({}, options);
+  opts.cwd = cwd;
+  env.user = new User(opts);
+  env.config = new Config(fp, options);
+  env.module = new Mod(options.module, env.config, options);
+  return env;
+}
 
 /**
  * Expose `Resolver`
@@ -129,3 +147,4 @@ module.exports = Resolver;
 module.exports.Config = Config;
 module.exports.User = User;
 module.exports.Mod = Mod;
+module.exports.createEnv = createEnv;
