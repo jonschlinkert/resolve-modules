@@ -6,12 +6,12 @@ var path = require('path');
 var assert = require('assert');
 var gm = require('global-modules');
 var commands = require('spawn-commands');
-var Config = require('../lib/config');
-var config;
+var User = require('../lib/user');
+var user;
 
 var dir = path.join(gm, 'generate-foo');
 
-describe('Config', function() {
+describe('User', function() {
   before(function(cb) {
     fs.exists(dir, function(exists) {
       if (exists) return cb();
@@ -24,34 +24,18 @@ describe('Config', function() {
   });
 
   beforeEach(function() {
-    config = new Config(path.join(dir, 'generator.js'), {cwd: gm});
-  });
-
-  it('should get the config path', function() {
-    assert.equal(config.path, path.join(dir, 'generator.js'));
-  });
-
-  it('should resolve the dirname', function() {
-    assert.equal(config.dirname, dir);
+    user = new User(path.join(dir, 'generator.js'), {cwd: gm});
   });
 
   it('should resolve the package.json path', function() {
-    assert.equal(config.pkgPath, path.join(dir, 'package.json'));
+    assert.equal(user.pkgPath, path.join(process.cwd(), 'package.json'));
   });
 
   it('should resolve package.json object', function() {
-    assert.equal(config.pkg.name, 'generate-foo');
+    assert.equal(user.pkg.name, 'resolve-modules');
   });
 
   it('should resolve the search pattern cwd', function() {
-    assert.equal(config.cwd, dir);
-  });
-
-  it('should get the name', function() {
-    assert.equal(config.name, 'generate-foo');
-  });
-
-  it('should get the alias', function() {
-    assert.equal(config.alias, 'foo');
+    assert.equal(user.cwd, process.cwd());
   });
 });
