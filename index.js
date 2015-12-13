@@ -78,18 +78,12 @@ Emitter(Resolver.prototype);
  * @api public
  */
 
-Resolver.prototype.resolve = function(key, options) {
-  if (typeof key !== 'string') {
-    options = key;
-    key = null;
-  }
+Resolver.prototype.resolve = function(key, patterns, options) {
+  var opts = utils.normalizeOptions(key, patterns, options);
+  opts = utils.extend({}, this.options, opts);
+  opts.key = opts.key || 'default';
 
-  if (!key) key = 'default';
-  options = utils.extend({}, this.options, options);
-  var opts = utils.normalizeOptions(options);
-  opts.key = key;
-  var patterns = (opts.patterns || opts.pattern);
-
+  patterns = (opts.patterns || opts.pattern);
   var files = this.files[opts.cwd] || utils.glob.sync(patterns, opts);
   this.files[opts.cwd] = files;
 
@@ -106,8 +100,8 @@ Resolver.prototype.resolve = function(key, options) {
       env = createEnv(fp, cwd, opts);
     }
 
-    this.emit('config', key, env);
-    utils.set(this.configs, [key, env.config.alias], env);
+    this.emit('config', opts.key, env);
+    utils.set(this.configs, [opts.key, env.config.alias], env);
   }
   return this;
 };

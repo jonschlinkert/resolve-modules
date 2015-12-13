@@ -70,7 +70,6 @@ describe('Resolver', function() {
   it('should expose a `config` object on the emitted env', function(cb) {
     resolver.once('config', function(name, env) {
       assert(env.config);
-      console.log(env)
       assert.equal(typeof env.config, 'object');
       cb();
     });
