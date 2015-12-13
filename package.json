@@ -1,7 +1,7 @@
 {
   "name": "resolve-modules",
   "description": "Resolves local and global npm modules that match specified patterns, and returns a configuration object for each resolved module.",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "homepage": "https://github.com/jonschlinkert/resolve-modules",
   "author": "Jon Schlinkert (https://github.com/jonschlinkert)",
   "repository": "jonschlinkert/resolve-modules",
@@ -26,16 +26,16 @@
     "empty-dir": "^0.1.0",
     "extend-shallow": "^2.0.1",
     "find-pkg": "^0.1.0",
-    "get-value": "^2.0.0",
+    "get-value": "^2.0.2",
     "has-value": "^0.3.0",
     "is-valid-glob": "^0.3.0",
-    "lazy-cache": "^0.2.4",
+    "lazy-cache": "^1.0.2",
     "matched": "^0.3.2",
     "project-name": "^0.2.3",
     "relative": "^3.0.2",
     "resolve": "^1.1.6",
     "resolve-dir": "^0.1.0",
-    "set-value": "^0.3.1"
+    "set-value": "^0.3.2"
   },
   "devDependencies": {
     "global-modules": "^0.2.0",
@@ -59,6 +59,9 @@
     "resolve"
   ],
   "verb": {
+    "plugins": [
+      "gulp-format-md"
+    ],
     "related": {
       "list": [
         "global-modules",
