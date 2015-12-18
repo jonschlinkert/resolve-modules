@@ -87,6 +87,10 @@ Resolver.prototype.resolve = function(key, patterns, options) {
   var files = this.files[opts.cwd] || utils.glob.sync(patterns, opts);
   this.files[opts.cwd] = files;
 
+  if (!this.user) {
+    this.user = new User(opts);
+  }
+
   var len = files.length;
   while (len--) {
     var fp = files[len];
@@ -97,7 +101,7 @@ Resolver.prototype.resolve = function(key, patterns, options) {
     if (this.cache[cwd]) {
       env = this.cache[cwd];
     } else {
-      env = createEnv(fp, cwd, opts);
+      env = createEnv(fp, cwd, opts, this.user);
     }
 
     this.emit('config', opts.key, env);
@@ -117,12 +121,12 @@ Resolver.prototype.resolve = function(key, patterns, options) {
  * @api public
  */
 
-function createEnv(fp, cwd, options) {
+function createEnv(fp, cwd, options, user) {
   options = options || {};
   var env = {};
   var opts = utils.extend({}, options);
   opts.cwd = cwd;
-  env.user = new User(opts);
+  env.user = user;
   env.config = new Config(fp, options);
   env.module = new Mod(options.module, env.config, options);
   return env;
