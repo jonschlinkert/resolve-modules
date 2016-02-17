@@ -1,5 +1,6 @@
 'use strict';
 
+var fs = require('fs');
 var path = require('path');
 var Emitter = require('component-emitter');
 var Config = require('./lib/config');
@@ -43,6 +44,23 @@ function Resolver(options) {
  */
 
 Emitter(Resolver.prototype);
+
+Resolver.prototype.resolveModule = function(cwd, cb) {
+  if (this.hasOwnProperty('module')) return this.module;
+  var res = utils.resolveModule(this.options.module, cwd);
+  return (this.module = res || null);
+};
+
+Resolver.prototype.localConfig = function(patterns, cwd) {
+  if (this.hasOwnProperty('local')) return this.local;
+  if (!cwd) cwd = process.cwd();
+  console.log(utils.findUp(process.cwd(), 1))
+  var fp = path.resolve(cwd, filename);
+  if (!utils.exists(fp)) {
+    fp = null;
+  }
+  return (this.local = fp);
+};
 
 /**
  * Searches for config files that match the given glob `patterns` and,
@@ -97,17 +115,40 @@ Resolver.prototype.resolve = function(key, patterns, options) {
     var cwd = opts.configCwd = path.dirname(fp);
     this.paths.push(fp);
 
-    var env = {};
-    if (this.cache[cwd]) {
-      env = this.cache[cwd];
-    } else {
-      env = createEnv(fp, cwd, opts, this.user);
-    }
+    var env = this.cache[cwd] || createEnv(fp, cwd, opts, this.user);
 
     this.emit('config', opts.key, env);
     utils.set(this.configs, [opts.key, env.config.alias], env);
+    if (opts.first) {
+      this.first = env;
+      break;
+    }
   }
   return this;
+};
+
+Resolver.prototype.resolveFirst = function(patterns, dirs) {
+  if (!dirs) dirs = [process.cwd()];
+  if (this.options.fallback) {
+    dirs.push(this.options.fallback);
+  }
+  dirs = utils.arrayify(dirs || []);
+  var len = dirs.length, i = -1;
+
+  while (++i < len) {
+    this.resolve(patterns, {cwd: dirs[i], first: true});
+    if (this.first) {
+      break;
+    }
+  }
+
+  if (!this.first) {
+    var env = {user: this.user};
+    env.mod = new Mod(this.options.module, {cwd: this.options.fallback});
+    env.config = {};
+    this.first = env;
+  }
+  return this.first;
 };
 
 /**
@@ -126,9 +167,9 @@ function createEnv(fp, cwd, options, user) {
   var env = {};
   var opts = utils.extend({}, options);
   opts.cwd = cwd;
-  env.user = user;
+  env.user = user || new User();
   env.config = new Config(fp, options);
-  env.module = new Mod(options.module, env.config, options);
+  env.module = new Mod(options.module, options);
   return env;
 }
 
