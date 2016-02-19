@@ -2,30 +2,17 @@
 
 var fs = require('fs');
 var path = require('path');
-var Emitter = require('component-emitter');
-var Config = require('./lib/config');
+var debug = require('debug')('resolve-modules');
+var MapCache = require('map-cache');
+var FragmentCache = require('./lib/fragment');
+var define = require('./lib/define');
 var utils = require('./lib/utils');
-var User = require('./lib/user');
-var Mod = require('./lib/mod');
 
 /**
- * Expose `Resolver`
- */
-
-module.exports = Resolver;
-
-/**
- * Create an instance of `Resolver` with `options`. The only required option
- * is `module`, which is the name of the module that will be used for
- * creating instances for config files by the [resolve](#resolve) method.
- *
- * For example, [generate][], the project generator, would be the "module",
- * and individual generators (`generator.js` files) would be the "config" files.
+ * Create a new `Resolver` with the given `options`
  *
  * ```js
- * var resolver = new Resolver({
- *   module: 'generate'
- * });
+ * var resolver = new Resolver();
  * ```
  * @param {Object} `options`
  * @api public
@@ -33,157 +20,263 @@ module.exports = Resolver;
 
 function Resolver(options) {
   this.options = options || {};
-  utils.define(this, 'cache', {});
-  utils.define(this, 'files', {});
-  utils.define(this, 'paths', []);
-  this.configs = {};
+  this.fragment = this.options.fragment || new FragmentCache();
+  this.cache = new MapCache();
+  this.files = [];
 }
 
 /**
- * Inherit Emitter and Paths
- */
-
-Emitter(Resolver.prototype);
-
-Resolver.prototype.resolveModule = function(cwd, cb) {
-  if (this.hasOwnProperty('module')) return this.module;
-  var res = utils.resolveModule(this.options.module, cwd);
-  return (this.module = res || null);
-};
-
-Resolver.prototype.localConfig = function(patterns, cwd) {
-  if (this.hasOwnProperty('local')) return this.local;
-  if (!cwd) cwd = process.cwd();
-  console.log(utils.findUp(process.cwd(), 1))
-  var fp = path.resolve(cwd, filename);
-  if (!utils.exists(fp)) {
-    fp = null;
-  }
-  return (this.local = fp);
-};
-
-/**
- * Searches for config files that match the given glob `patterns` and,
- * when found, emits `config` with details about the module and environment,
- * such as absolute path, `cwd`, path to parent module, etc.
+ * Searches the same directories used by npm and creates and array of
+ * resolved modules that match the given `pattern`.
  *
- * ```js
- * var resolver = new Resolver({
- *   module: 'generate'
- * });
- *
- * resolver.on('config', function(config, mod) {
- *   // `config` is an object with fully resolved file paths.
- *   // Config also has a `fn` getter that returns the contents of
- *   // the config file. Using the "generate" analogy above, this would
- *   // be a "generator.js" config file
- *
- *   // `mod` (module) is a similar object, but for the "parent"
- *   // module. Using the generate analogy above, this would be an installation
- *   // "generate", either installed locally to the generator, or as a global
- *   // npm module
- * });
- *
- * resolver
- *   .resolve('generator.js', {cwd: 'foo'})
- *   .resolve('generator.js', {cwd: 'bar'})
- *   .resolve('generator.js', {cwd: 'baz'});
- * ```
- *
- * @param {String|Array|Object} `patterns` Glob pattern(s) or options object. If options, the `pattern` property must be defined with a glob pattern.
+ * @param {String} `pattern`
  * @param {Object} `options`
- * @return {Object} Returns the resolver instance, for chaining.
+ * @return {String}
  * @api public
  */
 
-Resolver.prototype.resolve = function(key, patterns, options) {
-  var opts = utils.normalizeOptions(key, patterns, options);
-  opts = utils.extend({}, this.options, opts);
-  opts.key = opts.key || 'default';
-
-  patterns = (opts.patterns || opts.pattern);
-  var files = this.files[opts.cwd] || utils.glob.sync(patterns, opts);
-  this.files[opts.cwd] = files;
-
-  if (!this.user) {
-    this.user = new User(opts);
-  }
-
-  var len = files.length;
-  while (len--) {
-    var fp = files[len];
-    var cwd = opts.configCwd = path.dirname(fp);
-    this.paths.push(fp);
-
-    var env = this.cache[cwd] || createEnv(fp, cwd, opts, this.user);
-
-    this.emit('config', opts.key, env);
-    utils.set(this.configs, [opts.key, env.config.alias], env);
-    if (opts.first) {
-      this.first = env;
-      break;
-    }
-  }
+Resolver.prototype.resolve = function(patterns, options) {
+  var opts = utils.extend({}, this.options, options);
+  utils.union(this.files, utils.resolveUp(patterns, opts));
   return this;
 };
 
-Resolver.prototype.resolveFirst = function(patterns, dirs) {
-  if (!dirs) dirs = [process.cwd()];
-  if (this.options.fallback) {
-    dirs.push(this.options.fallback);
-  }
-  dirs = utils.arrayify(dirs || []);
-  var len = dirs.length, i = -1;
+/**
+ * Returns a matcher function bound to `files`. The returned function
+ * takes a glob pattern and optionally a property from the returned
+ * value.
+ *
+ * @param {Array} `files`
+ * @param {Object} `options`
+ * @return {String}
+ */
 
-  while (++i < len) {
-    this.resolve(patterns, {cwd: dirs[i], first: true});
-    if (this.first) {
-      break;
+Resolver.prototype.match = function(pattern, prop) {
+  var opts = utils.extend({}, this.options);
+  var cached = this.fragment.get('match', pattern);
+  if (cached) {
+    return prop ? cached[prop] : cached;
+  }
+
+  var isMatch = utils.mm.matcher(pattern, opts);
+  var len = this.files.length;
+  var idx = -1;
+
+  while (++idx < len) {
+    var fp = this.files[idx];
+    var file = this.cache.get(fp) || this.createEnv(fp, opts);
+    if (!utils.isValid(file, opts)) {
+      continue;
+    }
+
+    this.cache.set(fp, file);
+
+    if (isMatch(file.name)) {
+      this.fragment.set('name', file.name, file);
+      this.fragment.set('match', pattern, file);
+      return prop ? file[prop] : file;
     }
   }
-
-  if (!this.first) {
-    var env = {user: this.user};
-    env.mod = new Mod(this.options.module, {cwd: this.options.fallback});
-    env.config = {};
-    this.first = env;
-  }
-  return this.first;
 };
 
 /**
- * Return a new `env` (environment) object with `config`, `module`
- * and `user` properties.
+ * Returns a function bound to `files` for getting the
+ * given `property`
  *
- * @param {String} `fp` The starting filepath for the `config`
- * @param {String} `cwd` The user (process) `cwd`
+ * @param {Array} `files`
  * @param {Object} `options`
- * @return {Object}
- * @api public
+ * @return {String}
  */
 
-function createEnv(fp, cwd, options, user) {
-  options = options || {};
-  var env = {};
-  var opts = utils.extend({}, options);
-  opts.cwd = cwd;
-  env.user = user || new User();
-  env.config = new Config(fp, options);
-  env.module = new Mod(options.module, options);
-  return env;
-}
+Resolver.prototype.getProp = function(name) {
+  var opts = utils.extend({}, this.options);
+  var app = this;
+
+  return function(key, prop) {
+    var cached = app.fragment.get(name, key);
+    if (cached) {
+      return prop ? cached[prop] : cached;
+    }
+
+    var len = app.files.length;
+    var idx = -1;
+
+    while (++idx < len) {
+      var fp = app.files[idx];
+      var file = app.cache.get(fp) || app.createEnv(fp, opts);
+      if (!file) {
+        return null;
+      }
+
+      app.cache.set(fp, file);
+
+      if (file[name] === key) {
+        app.fragment.set(name, file[name], file);
+        return prop ? file[prop] : file;
+      }
+    }
+  };
+};
+
+Resolver.prototype.get = function(key, prop) {
+  return this.path(key, prop) || this.name(key, prop) || this.alias(key, prop);
+};
+
+Resolver.prototype.path = function(key, prop) {
+  return this.getProp('path', this.options)(key, prop)
+    || this.fragment.get('path', key);
+};
+
+Resolver.prototype.name = function(key, prop) {
+  return this.getProp('name', this.options)(key, prop)
+    || this.fragment.get('name', key);
+};
+
+Resolver.prototype.alias = function(key, prop) {
+  return this.getProp('alias', this.options)(key, prop)
+    || this.fragment.get('alias', key);
+};
+
+
+Resolver.prototype.resolvePath = function(key, prop) {
+  return this.getProp('alias', this.options)(key, prop)
+    || this.fragment.get('alias', key);
+};
+
+
+Resolver.prototype.createLookup = function(name) {
+  var opts = utils.extend({}, this.options);
+
+  return function(key, prop) {
+    var result = this.getProp(name, opts)(key, prop);
+    if (typeof result !== 'undefined') {
+      return result;
+    }
+    return this.fragment.get(name, key);
+  }
+};
+
+Resolver.prototype.createEnv = function(fp, options, fn) {
+  if (typeof options === 'function') {
+    fn = options;
+    options = {};
+  }
+
+  var opts = utils.extend({}, this.options, options);
+  var file = new utils.File({path: fp, content: null});
+  var stat = file.stat;
+
+  var cwd = path.dirname(file.path);
+  var app = this;
+
+  file.pkgPath = path.resolve(cwd, 'package.json');
+  var pkg;
+
+  /**
+   * file.pkg
+   */
+
+  define(file, 'pkg', function() {
+    if (pkg) return pkg;
+
+    if (utils.exists(file.pkgPath)) {
+      pkg = require(file.pkgPath);
+    }
+
+    if (!pkg && file.stat.isDirectory()) {
+      file.pkgPath = path.resolve(file.path, 'package.json');
+      pkg = require(file.pkgPath);
+
+      if (pkg && pkg.main) {
+        var dir = file.path;
+        file.path = path.resolve(dir, pkg.main);
+      }
+    }
+    return pkg || {};
+  });
+
+  /**
+   * file.pkg
+   */
+
+  define(file, 'stat', function() {
+    return stat || fs.lstatSync(file.path);
+  });
+
+  /**
+   * file.name
+   */
+
+  define(file, 'name', function() {
+    // if the dirname is the current working directory,
+    // this is our default generator
+    var name = file.dirname !== process.cwd()
+      ? (pkg ? pkg.name : path.basename(file.dirname))
+      : name = 'default';
+
+    app.fragment.set('name', name, file);
+    return name;
+  });
+
+  /**
+   * file.fn
+   */
+
+  define(file, 'fn', function() {
+    if (typeof fn === 'function') {
+      return fn;
+    }
+    fn = app.fragment.get('fn', file.name);
+    if (typeof fn === 'function') {
+      return fn;
+    }
+    fn = require(file.path);
+    app.fragment.set('fn', fn);
+    return fn;
+  });
+
+  /**
+   * file.alias
+   */
+
+  define(file, 'alias', function() {
+    var alias = typeof opts.alias === 'function'
+      ? opts.alias.call(file, file.name)
+      : utils.aliasFn.call(file, file.name, file);
+
+    if (alias) {
+      app.fragment.set('alias', alias, file);
+    }
+    return alias;
+  });
+
+  /**
+   * file.main
+   */
+
+  define(file, 'main', function() {
+    var main = (pkg && pkg.main || file.pkg && file.pkg.main);
+    if (typeof main === 'string') {
+      return path.resolve(file.dirname, main);
+    }
+    return file.path;
+  });
+
+  /**
+   * custom inspect
+   */
+
+  file.inspect = function() {
+    return '<Generator ' + utils.formatAlias(file) + utils.formatPath(file) + '>';
+  };
+
+  // set the file on the fragment cache
+  this.fragment.set('path', file.path, file);
+  return file;
+};
 
 /**
  * Expose `Resolver`
  */
 
 module.exports = Resolver;
-
-/**
- * Expose `env` constructors
- */
-
-module.exports.Config = Config;
-module.exports.User = User;
-module.exports.Mod = Mod;
-module.exports.createEnv = createEnv;

@@ -1,80 +1,86 @@
 #!/usr/bin/env node
 
+var path = require('path');
 var argv = require('minimist')(process.argv.slice(2));
-var Liftoff = require('liftoff');
-var liftoff = new Liftoff({
-  name: 'generate',
-  moduleName: 'generate',
-  configName: 'generator',
-  extensions: {
-    '.js': null,
-    '.coffee': 'coffee-script/register'
-  },
-  v8flags: ['--harmony'] // or v8flags: require('v8flags');
+var Resolver = require('./');
+var resolver = new Resolver();
+
+function validate(file, opts) {
+  if (!/^generate-/.test(file.name)) {
+    return false;
+  }
+  var keys = file.pkg.keywords || [];
+  return ~keys.indexOf('generator');
+}
+
+var generators = resolver.resolve('generate-*/{generator,index}.js', {
+  ignore: require('./blacklist'),
+  validate: validate
 });
 
-// var liftoff = new Liftoff({
-//   name: 'generate',
-//   //  moduleName: 'generate',   // these are assigned
-//   //  configName: 'generator',  // automatically by
-//   //  processTitle: 'generate', // the "name" option
-//   extensions: require('interpret').jsVariants,
-//   // ^ automatically attempt to require module for any javascript variant
-//   // supported by interpret.  e.g. coffee-script / livescript, etc
-//   v8flags: ['--harmony'] // to support all flags: require('v8flags')
-//     // ^ respawn node with any flag listed here
+// var verbfiles = resolver.resolve('verb-*-generator/{generator,index}.js', {
+//   ignore: require('./blacklist'),
+//   validate: validate
 // });
 
-liftoff.on('require', function(name, module) {
-  console.log('Loading:', name);
-});
+// console.log(verbfiles);
+// console.log(verbfiles.name('generate-foo'));
+// console.log(verbfiles.match('*-readme*'));
 
-liftoff.on('requireFail', function(name, err) {
-  console.log('Unable to load:', name, err);
-});
+var results = [];
+results.push(generators.name('generate-mocha'));
+results.push(generators.alias('mocha'));
 
-liftoff.on('respawn', function(flags, child) {
-  console.log('Detected node flags:', flags);
-  console.log('Respawned to PID:', child.pid);
-});
+results.push(generators.match('*-mocha'));
+results.push(generators.match('*-foo'));
 
-liftoff.launch({
-  cwd: argv.cwd,
-  configPath: argv.generator,
-  require: argv.require,
-  completion: argv.completion,
-  verbose: argv.v
-}, function(env) {
-  if (argv.v) {
-    console.log();
-    console.log('LIFTOFF SETTINGS:', this);
-    console.log('CLI OPTIONS:', argv);
-    console.log('CWD:', env.cwd);
-    console.log('LOCAL MODULES PRELOADED:', env.require);
-    console.log('SEARCHING FOR:', env.configNameRegex);
-    console.log('FOUND CONFIG AT:', env.configPath);
-    console.log('CONFIG BASE DIR:', env.configBase);
-    console.log('YOUR LOCAL MODULE IS LOCATED:', env.modulePath);
-    console.log('LOCAL PACKAGE.JSON:', env.modulePackage);
-    console.log('CLI PACKAGE.JSON', require('./package'));
-    console.log();
-  }
+console.log(results);
+// console.log(generators);
+// console.log(resolve.fragment);
+// var foo = resolve.register('generate-foo');
+// console.log(foo.fn);
+// console.log(generators);
+// console.log(resolve.fragment);
 
-  if (process.cwd() !== env.cwd) {
-    process.chdir(env.cwd);
-    console.log('Working directory changed to', env.cwd);
-    console.log();
-  }
+// var bar = resolver.resolve(path.resolve('node_modules/generate-foo'));
+// console.log(bar.fn);
+// console.log(bar.alias);
+// console.log(bar.path);
+// console.log(bar.name);
 
-  if (!env.modulePath) {
-    console.log('Local', liftoff.moduleName, 'module not found in:', env.cwd);
-    console.log();
-    // process.exit(1);
-  }
+// var def = resolver.resolve('default', './generator');
+// console.log(def);
+// console.log(def.alias);
+// console.log(def.path);
+// console.log(def.name);
 
-  if (env.configPath) {
-    require(env.configPath);
-  } else {
-    console.log('No', liftoff.configName, 'found.');
-  }
-});
+// var auto = resolver.resolve('./generator');
+// console.log(auto);
+// console.log(auto.alias);
+// console.log(auto.path);
+// console.log(auto.name);
+
+// console.log(generators);
+// console.log(resolver.resolvefragment);
+
+// var gen = resolve.register('quux', function() {
+//   console.log('inside quux');
+// });
+// console.log(gen);
+// console.log(resolve.fragment);
+// gen.fn();
+// console.log(resolve.fragment);
+
+// var gen2 = resolve.register('bar', path.resolve('node_modules', 'generate-foo'));
+// console.log(gen2);
+// console.log(resolve.fragment);
+// // gen2.fn();
+// console.log(resolve.fragment);
+
+// app.register('foo', function() {
+
+// });
+
+// var defaults = require('generate-defaults');
+
+// app.register('defaults', defaults);
