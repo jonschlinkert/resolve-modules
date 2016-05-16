@@ -1,17 +1,22 @@
 'use strict';
 
-var utils = require('../lib/utils');
-
-var Config = require('../lib/config');
-var config = new Config({
-  cwd: '@/generate-node',
-  path: 'generate.js'
+var Paths = require('../resolve');
+var blacklist = require('../blacklist');
+var paths = new Paths({
+  filter: function(file) {
+    // console.log(file)
+    return /verb-|generate-/.test(file.path) && !~blacklist.indexOf(file.name);
+  }
 });
 
-var Mod = require('../lib/mod');
-var mod = new Mod('generate', {
-  configCwd: config.cwd
-});
+// var files = [];
 
-console.log(config.path);
-console.log(mod);
+// paths.resolveDirs(function(file, env) {
+//   file.env = env;
+//   files.push(file);
+// });
+
+// console.log(files);
+// console.log(files[0].env.main);
+
+console.log(paths.findModule('verb'))

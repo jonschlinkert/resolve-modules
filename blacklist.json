@@ -1,8 +1,8 @@
 [
-  "**/generate-function/**",
-  "**/generate-id/**",
-  "**/generate-object-property/**",
-  "**/generate-rgb/**",
-  "**/generate-uuid/**",
-  "**/generate-walle/**"
+  "generate-function",
+  "generate-id",
+  "generate-object-property",
+  "generate-rgb",
+  "generate-uuid",
+  "generate-walle"
 ]

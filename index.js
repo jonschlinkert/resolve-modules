@@ -4,9 +4,11 @@ var fs = require('fs');
 var path = require('path');
 var debug = require('debug')('resolve-modules');
 var MapCache = require('map-cache');
-var FragmentCache = require('./lib/fragment');
+var findup = require('find-pkg');
+var Fragment = require('./lib/fragment');
 var define = require('./lib/define');
 var utils = require('./lib/utils');
+var File = require('vinyl');
 
 /**
  * Create a new `Resolver` with the given `options`
@@ -20,8 +22,9 @@ var utils = require('./lib/utils');
 
 function Resolver(options) {
   this.options = options || {};
-  this.fragment = this.options.fragment || new FragmentCache();
-  this.cache = new MapCache();
+  this.fragment = this.options.fragment || new Fragment();
+  this.cache = this.options.cache || new MapCache();
+  this.fileCache = {};
   this.files = [];
 }
 
@@ -37,8 +40,30 @@ function Resolver(options) {
 
 Resolver.prototype.resolve = function(patterns, options) {
   var opts = utils.extend({}, this.options, options);
-  utils.union(this.files, utils.resolveUp(patterns, opts));
+  var fn = opts.filter || function() {
+    return true;
+  };
+
+  opts.filter = function(filepath) {
+    console.log(filepath)
+    return fn.call(this, filepath);
+  }.bind(this);
+
+  utils.resolveUp(patterns, opts);
   return this;
+};
+
+Resolver.prototype.lookup = function(name, key, prop) {
+  var opts = utils.extend({}, this.options);
+  var result = this.getProp(name, opts)(key, prop);
+  return result || this.fragment.get(name, key);
+};
+
+Resolver.prototype.cacheFile = function(filepath) {
+  if (!this.fileCache.hasOwnProperty(filepath)) {
+    this.fileCache[filepath] = this.createFile(filepath);
+    this.files.push(filepath);
+  }
 };
 
 /**
@@ -64,17 +89,17 @@ Resolver.prototype.match = function(pattern, prop) {
 
   while (++idx < len) {
     var fp = this.files[idx];
-    var file = this.cache.get(fp) || this.createEnv(fp, opts);
-    if (!utils.isValid(file, opts)) {
-      continue;
-    }
+    var file = this.cache.get(fp) || this.createFile(fp, opts);
 
-    this.cache.set(fp, file);
+    if (utils.isValid(file, opts)) {
+      this.cache.set(fp, file);
 
-    if (isMatch(file.name)) {
-      this.fragment.set('name', file.name, file);
-      this.fragment.set('match', pattern, file);
-      return prop ? file[prop] : file;
+      if (isMatch(file.name)) {
+        this.fragment.set('path', file.path, file);
+        this.fragment.set('name', file.name, file);
+        this.fragment.set('match', pattern, file);
+        return prop ? file[prop] : file;
+      }
     }
   }
 };
@@ -103,7 +128,7 @@ Resolver.prototype.getProp = function(name) {
 
     while (++idx < len) {
       var fp = app.files[idx];
-      var file = app.cache.get(fp) || app.createEnv(fp, opts);
+      var file = app.cache.get(fp) || app.createFile(fp, opts);
       if (!file) {
         return null;
       }
@@ -119,158 +144,78 @@ Resolver.prototype.getProp = function(name) {
 };
 
 Resolver.prototype.get = function(key, prop) {
-  return this.path(key, prop) || this.name(key, prop) || this.alias(key, prop);
+  return this.alias(key, prop) || this.name(key, prop) || this.path(key, prop);
 };
 
 Resolver.prototype.path = function(key, prop) {
-  return this.getProp('path', this.options)(key, prop)
-    || this.fragment.get('path', key);
+  return this.lookup('path', key, prop);
 };
 
 Resolver.prototype.name = function(key, prop) {
-  return this.getProp('name', this.options)(key, prop)
-    || this.fragment.get('name', key);
+  return this.lookup('name', key, prop);
 };
 
 Resolver.prototype.alias = function(key, prop) {
-  return this.getProp('alias', this.options)(key, prop)
-    || this.fragment.get('alias', key);
+  return this.lookup('alias', key, prop);
 };
 
-
-Resolver.prototype.resolvePath = function(key, prop) {
-  return this.getProp('alias', this.options)(key, prop)
-    || this.fragment.get('alias', key);
-};
-
-
-Resolver.prototype.createLookup = function(name) {
-  var opts = utils.extend({}, this.options);
-
-  return function(key, prop) {
-    var result = this.getProp(name, opts)(key, prop);
-    if (typeof result !== 'undefined') {
-      return result;
-    }
-    return this.fragment.get(name, key);
-  }
-};
-
-Resolver.prototype.createEnv = function(fp, options, fn) {
-  if (typeof options === 'function') {
-    fn = options;
-    options = {};
-  }
-
+Resolver.prototype.createFile = function(filepath, options) {
   var opts = utils.extend({}, this.options, options);
-  var file = new utils.File({path: fp, content: null});
-  var stat = file.stat;
-
-  var cwd = path.dirname(file.path);
-  var app = this;
-
-  file.pkgPath = path.resolve(cwd, 'package.json');
-  var pkg;
-
-  /**
-   * file.pkg
-   */
-
-  define(file, 'pkg', function() {
-    if (pkg) return pkg;
-
-    if (utils.exists(file.pkgPath)) {
-      pkg = require(file.pkgPath);
-    }
-
-    if (!pkg && file.stat.isDirectory()) {
-      file.pkgPath = path.resolve(file.path, 'package.json');
-      pkg = require(file.pkgPath);
-
-      if (pkg && pkg.main) {
-        var dir = file.path;
-        file.path = path.resolve(dir, pkg.main);
-      }
-    }
-    return pkg || {};
-  });
-
-  /**
-   * file.pkg
-   */
-
-  define(file, 'stat', function() {
-    return stat || fs.lstatSync(file.path);
-  });
-
-  /**
-   * file.name
-   */
-
-  define(file, 'name', function() {
-    // if the dirname is the current working directory,
-    // this is our default generator
-    var name = file.dirname !== process.cwd()
-      ? (pkg ? pkg.name : path.basename(file.dirname))
-      : name = 'default';
-
-    app.fragment.set('name', name, file);
-    return name;
-  });
-
-  /**
-   * file.fn
-   */
-
-  define(file, 'fn', function() {
-    if (typeof fn === 'function') {
-      return fn;
-    }
-    fn = app.fragment.get('fn', file.name);
-    if (typeof fn === 'function') {
-      return fn;
-    }
-    fn = require(file.path);
-    app.fragment.set('fn', fn);
-    return fn;
-  });
-
-  /**
-   * file.alias
-   */
-
-  define(file, 'alias', function() {
-    var alias = typeof opts.alias === 'function'
-      ? opts.alias.call(file, file.name)
-      : utils.aliasFn.call(file, file.name, file);
-
-    if (alias) {
-      app.fragment.set('alias', alias, file);
-    }
-    return alias;
-  });
-
-  /**
-   * file.main
-   */
-
-  define(file, 'main', function() {
-    var main = (pkg && pkg.main || file.pkg && file.pkg.main);
-    if (typeof main === 'string') {
-      return path.resolve(file.dirname, main);
-    }
-    return file.path;
-  });
-
-  /**
-   * custom inspect
-   */
+  var file = new File({path: filepath});
+  var self = this;
 
   file.inspect = function() {
-    return '<Generator ' + utils.formatAlias(file) + utils.formatPath(file) + '>';
+    return '<Env ' + this.name + ' <' + this.path + '>>';
   };
 
-  // set the file on the fragment cache
+  define(file, 'stat', function() {
+    var stat = fs.statSync(this.path);
+    if (stat.isDirectory()) {
+      var pkgPath = findup.sync(this.path);
+      console.log(this.path)
+    }
+  });
+
+  define(file, 'cache', function() {
+    return new MapCache();
+  });
+
+  define(file, 'cwd', function() {
+    return path.dirname(this.pkgPath);
+  });
+
+  define(file, 'main', function() {
+    return utils.resolve.sync(this.path);
+  });
+
+  define(file, 'pkgPath', function() {
+    // var pkgPath = file.cache.get('pkgPath');
+    return file.cache.get('pkgPath');
+    // if (pkgPath) {
+    //   return pkgPath;
+    // }
+
+    // if (!this.stat.isDirectory()) {
+    //   return findup.sync(this.dirname);
+    // }
+    // return path.join(this.path, 'package.json');
+  });
+
+  define(file, 'pkg', function() {
+    return require(this.pkgPath);
+  });
+
+  define(file, 'name', function() {
+    return this.pkg.name;
+  });
+
+  define(file, 'alias', function() {
+    return (opts.toAlias || utils.toAlias).call(this, this.name, opts);
+  });
+
+  console.log(file.stat);
+  console.log(file.main);
+
   this.fragment.set('path', file.path, file);
   return file;
 };

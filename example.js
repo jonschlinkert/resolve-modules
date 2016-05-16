@@ -6,17 +6,15 @@ var Resolver = require('./');
 var resolver = new Resolver();
 
 function validate(file, opts) {
-  if (!/^generate-/.test(file.name)) {
-    return false;
-  }
-  var keys = file.pkg.keywords || [];
-  return ~keys.indexOf('generator');
+  return /^generator-/.test(file.name) || ~(file.pkg.keywords || []).indexOf('generator');
 }
 
-var generators = resolver.resolve('generate-*/{generator,index}.js', {
+var generators = resolver.resolve('generate-*', {
   ignore: require('./blacklist'),
   validate: validate
 });
+
+// console.log(generators)
 
 // var verbfiles = resolver.resolve('verb-*-generator/{generator,index}.js', {
 //   ignore: require('./blacklist'),
@@ -27,15 +25,15 @@ var generators = resolver.resolve('generate-*/{generator,index}.js', {
 // console.log(verbfiles.name('generate-foo'));
 // console.log(verbfiles.match('*-readme*'));
 
-var results = [];
-results.push(generators.name('generate-mocha'));
-results.push(generators.alias('mocha'));
+// var results = [];
+// results.push(generators.name('generate-mocha'));
+// results.push(generators.alias('mocha'));
+// results.push(generators.match('*-mocha'));
+// results.push(generators.match('*-foo'));
+// console.log(results)
 
-results.push(generators.match('*-mocha'));
-results.push(generators.match('*-foo'));
-
-console.log(results);
-// console.log(generators);
+// generators.match('generator-*');
+// console.log(generators.name('generate-mocha'));
 // console.log(resolve.fragment);
 // var foo = resolve.register('generate-foo');
 // console.log(foo.fn);
