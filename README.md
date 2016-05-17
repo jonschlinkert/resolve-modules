@@ -14,94 +14,124 @@ $ npm install resolve-modules --save
 
 ```js
 var Resolver = require('resolve-modules');
-var resolver = new Resolver({
-  module: 'generate'
-});
-
-resolver.resolve({
-  cwd: process.cwd(),
-  pattern: 'generate-*/generate.js'
-});
-```
-
-## Events
-
-When the search pattern finds a match, a `config` event is emitted:
-
-```js
-resolver.on('config', function(config) {
-  // do stuff with "config"
-});
-```
-
-The `config` object that is emitted looks something like this:
-
-```js
-{
-  options:
-   { realpath: true,
-     cwd: '/usr/local/lib/node_modules',
-     module: 'generate',
-     pattern: 'generate-*/generator.js',
-     configCwd: '/usr/local/lib/node_modules/generate-foo',
-     context: {} },
-  cache:
-   { name: 'generate-foo',
-     dirname: '/usr/local/lib/node_modules/generate-foo',
-     root: '/usr/local/lib/node_modules/generate-foo',
-     filename: 'generator.js',
-     cwd: '/usr/local/lib/node_modules/generate-foo',
-     pkg: '/usr/local/lib/node_modules/generate-foo/package.json',
-     relative: '',
-     alias: 'foo' },
-  path: '/usr/local/lib/node_modules/generate-foo/generator.js',
-  fn: [Getter/Setter],
-  filename: [Getter/Setter],
-  realpath: [Getter],
-  cwd: [Getter/Setter],
-  root: [Getter/Setter],
-  dirname: [Getter/Setter],
-  relative: [Getter/Setter],
-  name: [Getter/Setter],
-  alias: [Getter/Setter],
-  pkg: [Getter/Setter],
-  main: [Getter/Setter],
-  module:
-   Mod {
-     name: 'generate',
-     configCwd: undefined,
-     path: '/usr/local/lib/node_modules/generate/index.js',
-     realpath: [Getter],
-     pkg: [Getter],
-     fn: [Getter] } }
+var resolver = new Resolver();
 ```
 
 ## API
 
-### [Resolver](index.js#L23)
+### [Resolver](index.js#L27)
 
-Create a new `Resolver` with the given `options`
+Iterates over [npm-paths](https://github.com/jonschlinkert/npm-paths) and emits `file` for every resolved filepath, and `match` for files that match any specified [matchers](https://github.com/cezary/matchers). Paths are cached in memory using a few different objects:
+
+* `cache.paths`: array of absolute directory and file paths
+* `cache.names`: object of [vinyl](http://github.com/gulpjs/vinyl) files, where `file.name` is the object key. `file.name` is the basename of the filepath, but it's aliased as `name` so we can use it without touching the getters/setters on the vinyl file.
+* `cache.files`: array of [vinyl](http://github.com/gulpjs/vinyl) files
 
 **Params**
 
-* `options` **{Object}**
+* `options` **{Object}**: Specify a cache to use on `options.cache`.
 
 **Example**
 
 ```js
 var resolver = new Resolver();
+resolver.resolve();
+console.log(resolver);
 ```
 
-### [.resolve](index.js#L41)
+### [.resolve](index.js#L74)
 
-Searches the same directories used by npm and creates and array of
-resolved modules that match the given `pattern`.
+Iterates over [npm-paths](https://github.com/jonschlinkert/npm-paths) and returns an array of [vinyl](http://github.com/gulpjs/vinyl) files that match any provided matchers. Also emits `file` for all files, and `match` for matches. Additionally, paths are cached on the first call to `.resolve` so that any subsequent calls during the same process will use the cached filepaths instead of hitting the file system again. You can force `.resolve` to hit the file system again by deleting or nulling `resolver.cache.dirs`.
 
 **Params**
 
-* `pattern` **{String}**
+* `fn` **{Function|String|Array|RegExp}**: Optionally specify a matcher value.
 * `options` **{Object}**
-* `returns` **{String}**
+* `returns` **{Array}**: Returns an array of [vinyl](http://github.com/gulpjs/vinyl) files.
+
+**Example**
+
+```js
+resolver.match('verb', function(basename, file) {
+  return basename === 'verb';
+});
+
+// matches
+console.log(resolver.resolve());
+
+// all cached paths
+console.log(resolver);
+```
+
+### [.find](index.js#L92)
+
+Find a filepath where `file.basename` exactly matches the given `name`. This method is standalone and does not require use of the `.resolve` method or matchers.
+
+**Params**
+
+* `name` **{String}**: Basename of the file to match.
+* `returns` **{String|undefined}**: Returns the absolute filepath if a match is found, otherwise undefined.
+
+**Example**
+
+```js
+var filepath = resolver.find('foo');
+```
+
+### [.match](index.js#L119)
+
+Define a matcher to use for matching files when the `resolve` method is called. If a string or array of strings is passed, strict equality is used for comparisons with `file.name`.
+
+**Params**
+
+* `name` **{String|Function|Array|RegExp}**: Optionally provide `name` to emit when a match is found, a matcher function, string to match, array of strings, or regex.
+* `val` **{String|Function|Array|RegExp}**: Matcher function, string to match, array of strings, or regex.
+* `options` **{Object}**: If a string is passed, options may be passed to [micromatch](https://github.com/jonschlinkert/micromatch) to convert the string to regex.
+* `returns` **{Object}**: Returns the instance for chaining.
+
+**Example**
+
+```js
+resolver.match('foo');
+```
+
+### [.contains](index.js#L148)
+
+Define a matcher to use for matching files when the `resolve` method is called. If a string or array of strings is passed, any `file.name` that contains the given string or strings will return true.
+
+**Params**
+
+* `name` **{String|Function|Array|RegExp}**: Optionally provide `name` to emit when a match is found, a matcher function, string to match, array of strings, or regex.
+* `val` **{String|Function|Array|RegExp}**: Matcher function, string to match, array of strings, or regex.
+* `options` **{Object}**: If a string is passed, options may be passed to [micromatch](https://github.com/jonschlinkert/micromatch) to convert the string to regex.
+* `returns` **{Object}**: Returns the instance for chaining.
+
+**Example**
+
+```js
+resolver.contains('foo');
+```
+
+### [.resolveDirs](index.js#L199)
+
+Resolve sub-directories from npm-paths (does not recurse). This method probably doesn't need to be used directly, but it's exposed in case you want to customize behavior.
+
+**Params**
+
+* `fn` **{Function}**: Optionally specify a filter function to use on filepaths. If provided, the function will be called before any matchers are called. `basename` and `file` are exposed to the filter function as arguments, where `file` is an instance of [vinyl](http://github.com/gulpjs/vinyl).
+* `returns` **{Object}**: Returns the [cache](#cache).
+
+**Events**
+
+* `emits`: `ignore` when a file is removed.
+
+**Example**
+
+```js
+resolver.resolveDirs(function(basename, file) {
+  return !/foo/.test(file.path);
+});
+```
 
 ## Related projects
 
@@ -152,4 +182,4 @@ Released under the [MIT license](https://github.com/jonschlinkert/resolve-module
 
 ***
 
-_This file was generated by [verb](https://github.com/verbose/verb), v0.9.0, on April 25, 2016._
+_This file was generated by [verb](https://github.com/verbose/verb), v0.9.0, on May 16, 2016._
