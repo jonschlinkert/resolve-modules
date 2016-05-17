@@ -26,7 +26,7 @@ gulp.task('eslint', function() {
 
 gulp.task('unused', function() {
   var keys = Object.keys(require('./lib/utils.js'));
-  return gulp.src(['generator.js', 'lib/**/*.js'])
+  return gulp.src(['index.js', 'lib/*.js'])
     .pipe(unused({keys: keys}))
 });
 
