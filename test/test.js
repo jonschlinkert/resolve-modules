@@ -1,9 +1,8 @@
 'use strict';
 
 require('mocha');
+var path = require('path');
 var assert = require('assert');
-var gm = require('global-modules');
-require('generate-foo/generator.js');
 var Resolver = require('..');
 var resolver;
 
@@ -15,6 +14,22 @@ describe('Resolver', function() {
   it('should resolve npm paths', function() {
     resolver.resolve();
     assert(resolver.paths.length > 0);
+  });
+
+  it('should use custom paths pass on options', function(cb) {
+    resolver = new Resolver({paths: [path.resolve(__dirname, '..')]});
+    var count = 0;
+
+    resolver.match('LICENSE');
+
+    resolver.once('match', function(file) {
+      assert.equal(file.name, 'LICENSE');
+      count++;
+    });
+
+    resolver.resolve();
+    assert.equal(count, 1);
+    cb();
   });
 
   it('should emit `match` when a match is found', function(cb) {

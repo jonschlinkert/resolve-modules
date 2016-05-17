@@ -29,14 +29,13 @@ function Resolver(options) {
   this.matchers = {};
   utils.define(this, 'fns', []);
   utils.define(this, '_callbacks', {});
-  this.cache = this.options.cache || {
-    matches: {},
-    files: [],
-    paths: [],
-    names: {},
-    dirs: null
-  };
-  this.paths = null;
+  this.paths = this.options.paths || null;
+  this.cache = this.options.cache || {};
+  this.cache.matches = {};
+  this.cache.files = [];
+  this.cache.paths = [];
+  this.cache.names = {};
+  this.cache.dirs = null;
   this.matches = [];
 }
 
@@ -201,7 +200,7 @@ Resolver.prototype.resolveDirs = function(fn) {
 
   if (!this.cache.dirs) {
     this.cache.dirs = {};
-    var paths = this.npmPaths();
+    var paths = this.paths || this.npmPaths();
     this.emit('paths', paths);
 
     for (var i = 0; i < paths.length; i++) {
