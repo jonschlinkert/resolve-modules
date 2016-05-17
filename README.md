@@ -39,7 +39,7 @@ resolver.resolve();
 console.log(resolver);
 ```
 
-### [.resolve](index.js#L74)
+### [.resolve](index.js#L73)
 
 Iterates over [npm-paths](https://github.com/jonschlinkert/npm-paths) and returns an array of [vinyl](http://github.com/gulpjs/vinyl) files that match any provided matchers. Also emits `file` for all files, and `match` for matches. Additionally, paths are cached on the first call to `.resolve` so that any subsequent calls during the same process will use the cached filepaths instead of hitting the file system again. You can force `.resolve` to hit the file system again by deleting or nulling `resolver.cache.dirs`.
 
@@ -63,7 +63,7 @@ console.log(resolver.resolve());
 console.log(resolver);
 ```
 
-### [.find](index.js#L92)
+### [.find](index.js#L91)
 
 Find a filepath where `file.basename` exactly matches the given `name`. This method is standalone and does not require use of the `.resolve` method or matchers.
 
@@ -78,7 +78,7 @@ Find a filepath where `file.basename` exactly matches the given `name`. This met
 var filepath = resolver.find('foo');
 ```
 
-### [.match](index.js#L119)
+### [.match](index.js#L118)
 
 Define a matcher to use for matching files when the `resolve` method is called. If a string or array of strings is passed, strict equality is used for comparisons with `file.name`.
 
@@ -95,7 +95,7 @@ Define a matcher to use for matching files when the `resolve` method is called. 
 resolver.match('foo');
 ```
 
-### [.contains](index.js#L148)
+### [.contains](index.js#L147)
 
 Define a matcher to use for matching files when the `resolve` method is called. If a string or array of strings is passed, any `file.name` that contains the given string or strings will return true.
 
@@ -112,7 +112,7 @@ Define a matcher to use for matching files when the `resolve` method is called. 
 resolver.contains('foo');
 ```
 
-### [.resolveDirs](index.js#L199)
+### [.resolveDirs](index.js#L198)
 
 Resolve sub-directories from npm-paths (does not recurse). This method probably doesn't need to be used directly, but it's exposed in case you want to customize behavior.
 
