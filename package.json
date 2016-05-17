@@ -1,7 +1,7 @@
 {
   "name": "resolve-modules",
   "description": "Resolves local and global npm modules that match specified patterns, and returns a configuration object for each resolved module.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "homepage": "https://github.com/jonschlinkert/resolve-modules",
   "author": "Jon Schlinkert (https://github.com/jonschlinkert)",
   "repository": "jonschlinkert/resolve-modules",
