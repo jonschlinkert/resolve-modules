@@ -6,9 +6,9 @@ var resolver = new Resolver();
 // resolver.match('verb');
 // resolver.contains('-verb');
 
-resolver.match('verb', function(basename, file) {
-  return basename === 'verb';
-});
+// resolver.match('verb', function(basename, file) {
+//   return basename === 'verb';
+// });
 
 // resolver.on('file', function(file) {
 //   console.log(file)
@@ -31,8 +31,8 @@ resolver.match('verb', function(basename, file) {
 });
 console.log(resolver.resolve());
 
-resolver.match('udpate', function(basename, file) {
-  return /update/.test(basename);
-});
-console.log(resolver.resolve());
+// resolver.match('udpate', function(basename, file) {
+//   return /update/.test(basename);
+// });
+// console.log(resolver.resolve());
 

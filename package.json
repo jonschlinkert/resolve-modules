@@ -25,6 +25,7 @@
     "define-property": "^0.2.5",
     "extend-shallow": "^2.0.1",
     "fs-exists-sync": "^0.1.0",
+    "is-glob": "^2.0.1",
     "kind-of": "^3.0.3",
     "lazy-cache": "^2.0.1",
     "map-cache": "^0.2.2",

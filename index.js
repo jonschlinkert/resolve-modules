@@ -2,9 +2,10 @@
 
 var fs = require('fs');
 var path = require('path');
-var Emitter = require('component-emitter');
-var utils = require('./lib/utils');
 var File = require('./lib/file');
+var utils = require('./lib/utils');
+var Emitter = require('component-emitter');
+var cache = {dirs: {}, files: [], paths: null};
 
 /**
  * Iterates over [npm-paths][] and emits `file` for every resolved filepath, and `match`
@@ -26,17 +27,10 @@ var File = require('./lib/file');
 
 function Resolver(options) {
   this.options = options || {};
-  this.matchers = {};
-  utils.define(this, 'fns', []);
   utils.define(this, '_callbacks', {});
-  this.paths = this.options.paths || null;
-  this.cache = this.options.cache || {};
-  this.cache.matches = {};
-  this.cache.files = [];
-  this.cache.paths = [];
-  this.cache.names = {};
-  this.cache.dirs = null;
-  this.matches = [];
+  utils.define(this, 'fns', []);
+  this.cwd = this.options.cwd || process.cwd();
+  this.initCache();
 }
 
 /**
@@ -44,6 +38,44 @@ function Resolver(options) {
  */
 
 Object.setPrototypeOf(Resolver.prototype, Emitter.prototype);
+
+/**
+ * Clear the cache
+ */
+
+Resolver.prototype.initCache = function() {
+  if (typeof this.options.paths !== 'undefined') {
+    this.paths = this.options.paths;
+  }
+
+  this.filters = [];
+  this.matchers = {};
+  this.cache = this.options.cache || {};
+  this.cache.dirs = null;
+  this.cache.files = [];
+  this.cache.paths = [];
+  this.cache.names = {};
+  this.cache.ignored = {};
+  this.cache.matches = {};
+  this.matches = [];
+
+  var ignored = utils.arrayify(this.options.ignore || utils.ignore);
+  if (ignored.length) {
+    var fn = utils.ignoreMatcher(ignored, this.options);
+    this.filters.push(function(name, file) {
+      return fn(name) || fn(file.path);
+    });
+  }
+};
+
+/**
+ * Clear the cache
+ */
+
+Resolver.prototype.clearCache = function() {
+  cache = {dirs: {}, files: [], paths: null};
+  this.initCache();
+};
 
 /**
  * Iterates over [npm-paths][] and returns an array of [vinyl][] files that match any
@@ -70,9 +102,14 @@ Object.setPrototypeOf(Resolver.prototype, Emitter.prototype);
  * @api public
  */
 
-Resolver.prototype.resolve = function(fn) {
+Resolver.prototype.resolve = function(fn, options) {
+  if (utils.isObject(fn)) {
+    options = fn;
+    fn = null;
+  }
   if (fn) this.match.apply(this, arguments);
-  this.resolveDirs();
+  // pass options only, not filter function
+  this.resolveDirs(options);
   return this.matches;
 };
 
@@ -103,7 +140,9 @@ Resolver.prototype.find = function(name) {
 };
 
 /**
- * Define a matcher to use for matching files when the `resolve` method is called. If a string or array of strings is passed, strict equality is used for comparisons with `file.name`.
+ * Define a matcher to use for matching files when the `resolve` method is called.
+ * If a string or array of strings is passed, strict equality is used for comparisons
+ * with `file.name`.
  *
  * ```js
  * resolver.match('foo');
@@ -128,6 +167,24 @@ Resolver.prototype.match = function(name, val, options) {
   }
   this.matchers[name] = this.matchers[name] || [];
   this.matchers[name].push(val);
+  return this;
+};
+
+/**
+ * Define a filter function, glob, string or regex to use for excluding files before
+ * matchers are run.
+ *
+ * ```js
+ * resolver.filter('*.foo');
+ * ```
+ * @param {String|RegExp|Function} `val`
+ * @param {Object} `options`
+ * @return {Object}
+ * @api public
+ */
+
+Resolver.prototype.filter = function(val, options) {
+  this.filters.push(this.matcher(val, options));
   return this;
 };
 
@@ -167,11 +224,14 @@ Resolver.prototype.matcher = function(val, options) {
     val = val.join('|');
   }
   if (utils.typeOf(val) === 'string') {
+    if (utils.isGlob(val)) {
+      this.options.recurse = true;
+    }
     val = utils.mm.makeRe(val, options);
   }
   if (utils.typeOf(val) === 'regexp') {
-    return function(name) {
-      return val.test(name);
+    return function(name, file) {
+      return val.test(name) || val.test(file.relative);
     };
   }
   if (utils.typeOf(val) !== 'function') {
@@ -181,8 +241,11 @@ Resolver.prototype.matcher = function(val, options) {
 };
 
 /**
- * Resolve sub-directories from npm-paths (does not recurse). This method probably doesn't need to
- * be used directly, but it's exposed in case you want to customize behavior.
+ * Resolve sub-directories from npm-paths. This method probably doesn't need to
+ * be used directly, but it's exposed in case you want to customize behavior. Also note that
+ * `options.recurse` must be defined as `true` to recurse into child directories. Alternative,
+ * if **any** matcher is a glob pattern with a globstar (double star: `**`), `options.recurse`
+ * will automatically be set to `true`.
  *
  * ```js
  * resolver.resolveDirs(function(basename, file) {
@@ -195,70 +258,124 @@ Resolver.prototype.matcher = function(val, options) {
  * @api public
  */
 
-Resolver.prototype.resolveDirs = function(fn) {
-  var filter = this.options.filter;
-
+Resolver.prototype.resolveDirs = function(fn, options) {
   if (!this.cache.dirs) {
     this.cache.dirs = {};
+
     var paths = this.paths || this.npmPaths();
     this.emit('paths', paths);
 
     for (var i = 0; i < paths.length; i++) {
-      var dir = paths[i];
-
-      // npm paths are created, we need to make sure they actually exist
-      if (utils.exists(dir)) {
-        this.emit('dir', dir);
-
-        this.cache.paths.push(dir);
-        this.cache.dirs[dir] = [];
-
-        var files = fs.readdirSync(dir);
-        var len = files.length;
-        var idx = -1;
-
-        while (++idx < len) {
-          var obj = {};
-          obj.name = files[idx];
-          obj.path = path.resolve(dir, obj.name);
-          obj.base = dir;
-
-          // create a vinyl file
-          var file = new File(obj);
-          this.emit('file', file);
-
-          // run filter functions
-          if (typeof filter === 'function') {
-            if (filter.call(this, file.name, file) === true) {
-              this.emit('ignore', file);
-              continue;
-            }
-          }
-
-          if (typeof fn === 'function') {
-            if (fn.call(this, file.name, file) === true) {
-              this.emit('ignore', file);
-              continue;
-            }
-          }
-
-          // run matchers
-          this.runMatchers(file);
-
-          // cache files and paths
-          this.cache.names[file.name] = file;
-          this.cache.paths.push(file.path);
-          this.cache.files.push(file);
-          this.cache.dirs[dir].push(file);
-        }
-      }
+      this.readdir(path.resolve(paths[i]), fn, options);
     }
   } else {
-    for (var j = 0; j < this.cache.files.length; j++) {
-      this.runMatchers(this.cache.files[j]);
+    var files = this.cache.files;
+    for (var j = 0; j < files.length; j++) {
+      this.runMatchers(files[j]);
     }
   }
   return this.cache;
+};
+
+/**
+ * Create a new vinyl file at the given `cwd`
+ */
+
+Resolver.prototype.readdir = function(dir, fn, options) {
+  if (typeof fn !== 'function') {
+    options = fn;
+    fn = null;
+  }
+
+  var opts = utils.extend({}, this.options, options);
+
+  // since the npm paths array is created dynamically, we need to make sure they actually exist
+  if (utils.exists(dir)) {
+    var stat = fs.lstatSync(dir);
+    var file;
+
+    if (!stat.isDirectory()) {
+      file = this.toFile(path.dirname(dir), path.dirname(dir));
+      file.stat = stat;
+      this.cacheFile(dir, file, fn);
+      return;
+    }
+
+    this.cache.paths.push(dir);
+    this.cache.dirs[dir] = [];
+
+    var files = cache.files[dir] || (cache.files[dir] = fs.readdirSync(dir));
+    var len = files.length;
+    var idx = -1;
+
+    this.emit('dir', dir, files);
+
+    while (++idx < len) {
+      file = this.toFile(dir, files[idx]);
+      file.stat = fs.lstatSync(file.path);
+
+      var cached = this.cacheFile(dir, file, fn);
+      if (cached === false) {
+        continue;
+      }
+
+      this.cache.dirs[dir].push(file);
+      if (opts.recurse === true && file.stat.isDirectory()) {
+        this.readdir(file.path, fn, options);
+      }
+    }
+  }
+};
+
+/**
+ * Create a new vinyl file at the given `cwd`
+ */
+
+Resolver.prototype.toFile = function(cwd, name) {
+  var obj = {};
+
+  obj.name = name;
+  obj.path = path.resolve(cwd, name);
+  obj.base = this.cwd;
+
+  // create a vinyl file
+  var file = new File(obj);
+  this.emit('file', name, file);
+  return file;
+};
+
+/**
+ * Create a new vinyl file at the given `cwd`
+ */
+
+Resolver.prototype.cacheFile = function(dir, file, fn) {
+  var filter = this.options.filter;
+
+  if (this.runFilters(file) === true) {
+    return false;
+  }
+
+  // run filter functions
+  if (typeof filter === 'function') {
+    if (filter.call(this, file.name, file) === true) {
+      this.emit('ignore', file);
+      return false;
+    }
+  }
+  if (typeof fn === 'function') {
+    if (fn.call(this, file.name, file) === true) {
+      this.emit('ignore', file);
+      return false;
+    }
+  }
+
+  // run matchers
+  this.runMatchers(file);
+  // cache files and paths
+  this.cache.names[file.name] = file;
+  this.cache.paths.push(file.path);
+  this.cache.files.push(file);
+  return file;
 };
 
 /**
@@ -268,7 +385,29 @@ Resolver.prototype.resolveDirs = function(fn) {
  */
 
 Resolver.prototype.npmPaths = function() {
-  return this.paths || (this.paths = utils.npmPaths());
+  return cache.paths || this.paths || (cache.paths = this.paths = utils.npmPaths());
+};
+
+/**
+ * Run the array of un-named matcher functions over the given [vinyl][] `file` object, and
+ * emit `match` for each match.
+ *
+ * @param {Object} `file` Instance of [vinyl][].
+ * @return {undefined}
+ */
+
+Resolver.prototype.runFilters = function(file) {
+  if (this.cache.ignored.hasOwnProperty(file.path)) {
+    return true;
+  }
+  for (var i = 0; i < this.filters.length; i++) {
+    var filter = this.filters[i];
+    if (filter(file.name, file)) {
+      this.cache.ignored[file.path] = true;
+      this.emit('ignore', file);
+      return true;
+    }
+  }
 };
 
 /**
@@ -296,9 +435,9 @@ Resolver.prototype.runFns = function(file) {
     var isMatch = this.fns[i];
     if (isMatch(file.name, file)) {
       if (!this.cache.matches.hasOwnProperty(file.path)) {
-        this.emit('match', file);
         this.cache.matches[file.path] = true;
         this.matches.push(file);
+        this.emit('match', file);
       }
     }
   }
@@ -323,10 +462,10 @@ Resolver.prototype.runNamedMatchers = function(file) {
         var isMatch = fns[idx];
         if (isMatch(file.name, file)) {
           if (!this.cache.matches.hasOwnProperty(file.path)) {
-            this.emit('match', file);
-            this.emit(key, file);
             this.cache.matches[file.path] = true;
             this.matches.push(file);
+            this.emit('match', file);
+            this.emit(key, file);
           }
         }
       }

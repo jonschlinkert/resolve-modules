@@ -6,6 +6,8 @@ var assert = require('assert');
 var Resolver = require('..');
 var resolver;
 
+var cwd = path.resolve(__dirname, '..');
+
 describe('Resolver', function() {
   beforeEach(function() {
     resolver = new Resolver();
@@ -16,8 +18,8 @@ describe('Resolver', function() {
     assert(resolver.paths.length > 0);
   });
 
-  it('should use custom paths pass on options', function(cb) {
-    resolver = new Resolver({paths: [path.resolve(__dirname, '..')]});
+  it('should use custom paths passed on options', function(cb) {
+    resolver = new Resolver({paths: [cwd]});
     var count = 0;
 
     resolver.match('LICENSE');
@@ -75,7 +77,7 @@ describe('Resolver', function() {
       return true;
     });
 
-    resolver.once('file', function(file) {
+    resolver.once('file', function(name, file) {
       assert(file);
       assert(file.path);
       count++;
@@ -142,6 +144,27 @@ describe('Resolver', function() {
     resolver.resolve();
     resolver.resolve();
     resolver.resolve();
+    resolver.resolve();
+    assert.equal(count, 1);
+    cb();
+  });
+
+  it('should recurse when options.recurse is true', function(cb) {
+    resolver = new Resolver({
+      recurse: true, 
+      paths: [cwd],
+      filter: function(name) {
+        return /(node_modules|tmp|coverage)/.test(name);
+      }
+    });
+
+    var count = 0;
+
+    resolver.on('file', function(name, file) {
+      if (name === 'file.js') {
+        count++;
+      }
+    });
     resolver.resolve();
     assert.equal(count, 1);
     cb();
